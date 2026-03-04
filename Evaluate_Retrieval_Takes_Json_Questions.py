@@ -6,12 +6,14 @@ End-to-end evaluation for your AUTOSAR documentation with 100 questions
 """
 
 """
-python Evaluation_complete_Retreival.py \
+python Evaluate_Retrieval_Takes_Json_Questions.py \
   --questions evaluation_questions.json \
   --resume progress_75.json
 OR
-python Evaluation_complete_Retreival.py --questions evaluation_questions.json
+python Evaluate_Retrieval_Takes_Json_Questions.py --questions evaluation_questions.json
 """
+import sys
+from io import StringIO
 from difflib import SequenceMatcher
 import unicodedata
 import json
@@ -33,17 +35,50 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 EVALUATION_MODE = "chunk"  # Options: "document" or "chunk"
-# EVALUATION_MODE = "document"  # Options: "document" or "chunk"
+
+
+def normalize(text: str) -> str:
+    """Normalize text for comparison"""
+    return (
+        unicodedata.normalize("NFKC", text)
+        .replace("\n", " ")
+        .replace("\u2010", "-")
+        .replace("\u2011", "-")
+        .replace("\u2012", "-")
+        .replace("\u2013", "-")
+    )
+
+
+def fuzzy_match(snippet: str, text: str, threshold: float = 0.8) -> bool:
+    """Fuzzy match a snippet against text using sliding window"""
+    snippet_clean = normalize(snippet.lower())
+    text_clean = normalize(text.lower())
+    # Check exact first
+    if snippet_clean in text_clean:
+        return True
+    # Fall back to sliding window fuzzy match
+    window_size = len(snippet_clean)
+    if window_size > len(text_clean):
+        # Snippet longer than text — compare full text directly
+        ratio = SequenceMatcher(None, snippet_clean, text_clean).ratio()
+        return ratio >= threshold
+    step = max(1, window_size // 4)
+    for i in range(0, len(text_clean) - window_size + 1, step):
+        window = text_clean[i:min(i + window_size + 20, len(text_clean))]
+        ratio = SequenceMatcher(None, snippet_clean, window).ratio()
+        if ratio >= threshold:
+            return True
+    return False
+
 
 class ComprehensiveEvaluator:
     """Complete evaluation system for 100-question dataset"""
-    
+
     def __init__(self, retriever: HybridRetriever):
         self.retriever = retriever
-        self.results = []
-        
+
     def evaluate_single_question(
-        self, 
+        self,
         question_data: Dict[str, Any],
         top_k: int = 10,
         verbose: bool = False
@@ -60,26 +95,6 @@ class ComprehensiveEvaluator:
         if verbose:
             logger.info(f"\nQuestion: {query}")
             logger.info(f"Expected: {ground_truth}")
-        
-        def normalize(text):
-            return unicodedata.normalize("NFKC", text).replace("\n", " ").replace("\u2010", "-").replace("\u2011", "-").replace("\u2012", "-").replace("\u2013", "-")
-        
-
-        def fuzzy_match(snippet, text, threshold=0.8):
-            snippet_clean = normalize(snippet.lower())
-            text_clean = normalize(text.lower())
-            # Check exact first
-            if snippet_clean in text_clean:
-                return True
-            # Fall back to sliding window fuzzy match
-            words = snippet_clean.split()
-            window_size = len(" ".join(words))
-            for i in range(len(text_clean) - window_size):
-                window = text_clean[i:i + window_size + 20]
-                ratio = SequenceMatcher(None, snippet_clean, window).ratio()
-                if ratio >= threshold:
-                    return True
-            return False
         
         # Perform search
         start_time = time.time()
@@ -105,8 +120,6 @@ class ComprehensiveEvaluator:
                         'rerank_score': result.rerank_score,
                     })
             
-            # Calculate metrics
-            # found = ground_truth in retrieved_docs
             # Calculate metrics based on evaluation mode
             if EVALUATION_MODE == "document":
                 # Document level — did the right PDF appear in results?
@@ -115,8 +128,6 @@ class ComprehensiveEvaluator:
 
             elif EVALUATION_MODE == "chunk":
                 # Chunk level — did any retrieved chunk contain the evidence snippet?
-                # evidence_snippets = question_data.get("evidence_snippets", [])
-                
                 if not evidence_snippets:
                     # No snippets available — fall back to document level with a warning
                     logger.warning(f"No evidence_snippets for {question_id} — falling back to document level")
@@ -136,7 +147,6 @@ class ComprehensiveEvaluator:
                             hit_list.append("__no_match__")
                     found = ground_truth in hit_list
             
-            # Rank of ground truth (1-based)
             # Rank of first correct hit (1-based)
             try:
                 rank = hit_list.index(ground_truth) + 1
@@ -145,30 +155,27 @@ class ComprehensiveEvaluator:
                 rank = None
                 reciprocal_rank = 0.0
             
-            # Precision and Recall at different K
+            # Precision@K: count of relevant docs in top-K / K
             metrics = {
                 'found': found,
                 'rank': rank,
                 'mrr': reciprocal_rank,
-                'precision@1':  (1.0/1)  if ground_truth in hit_list[:1]  else 0.0,
-                'precision@3':  (1.0/3)  if ground_truth in hit_list[:3]  else 0.0,
-                'precision@5':  (1.0/5)  if ground_truth in hit_list[:5]  else 0.0,
-                'precision@10': (1.0/10) if ground_truth in hit_list[:10] else 0.0,
-                'recall@1':  1.0 if ground_truth in hit_list[:1]  else 0.0,
-                'recall@3':  1.0 if ground_truth in hit_list[:3]  else 0.0,
-                'recall@5':  1.0 if ground_truth in hit_list[:5]  else 0.0,
-                'recall@10': 1.0 if ground_truth in hit_list[:10] else 0.0,
             }
-            
+            for k in [1, 3, 5, 10]:
+                relevant_count = sum(1 for doc in hit_list[:k] if doc == ground_truth)
+                metrics[f'precision@{k}'] = relevant_count / k
+                metrics[f'recall@{k}'] = 1.0 if ground_truth in hit_list[:k] else 0.0
+
             # Calculate NDCG@K
             for k in [1, 3, 5, 10]:
                 dcg = 0.0
+                num_relevant_in_list = sum(1 for doc in hit_list[:k] if doc == ground_truth)
                 for i, doc in enumerate(hit_list[:k], start=1):
                     if doc == ground_truth:
                         dcg += 1.0 / np.log2(i + 1)
-                        break
-                idcg = 1.0 / np.log2(2)
-                metrics[f'ndcg@{k}'] = dcg / idcg
+                # iDCG: best possible arrangement
+                idcg = sum(1.0 / np.log2(j + 1) for j in range(1, min(num_relevant_in_list, k) + 1))
+                metrics[f'ndcg@{k}'] = dcg / idcg if idcg > 0 else 0.0
             
             if verbose:
                 logger.info(f"Found: {found}, Rank: {rank}, MRR: {reciprocal_rank:.4f}")
@@ -207,11 +214,28 @@ class ComprehensiveEvaluator:
             logger.error(f"Error processing question {question_id}: {e}")
             return {
                 'question_id': question_id,
+                'evaluation_mode': EVALUATION_MODE,
                 'question': query,
+                'answer': question_data.get('answer', ''),
+                'question_type': question_type,
+                'difficulty': difficulty,
+                'page_reference': question_data.get('page_reference', ''),
                 'ground_truth': ground_truth,
+                'retrieved_documents': [],
+                'retrieved_chunks': [],
+                'latency_ms': 0.0,
+                'evidence_snippets': evidence_snippets,
+                'evidence_match': [],
                 'error': str(e),
-                'metrics': {k: 0.0 for k in ['found', 'mrr', 'precision@1', 'precision@3', 
-                                              'precision@5', 'precision@10']}
+                'metrics': {
+                    'found': 0.0, 'rank': None, 'mrr': 0.0,
+                    'precision@1': 0.0, 'precision@3': 0.0,
+                    'precision@5': 0.0, 'precision@10': 0.0,
+                    'recall@1': 0.0, 'recall@3': 0.0,
+                    'recall@5': 0.0, 'recall@10': 0.0,
+                    'ndcg@1': 0.0, 'ndcg@3': 0.0,
+                    'ndcg@5': 0.0, 'ndcg@10': 0.0,
+                }
             }
     
     def evaluate_all(
@@ -277,7 +301,6 @@ class ComprehensiveEvaluator:
                 'total_questions': len(all_results),
                 'evaluation_mode': EVALUATION_MODE,
                 'total_time_seconds': total_time,
-                # 'avg_time_per_question': total_time / len(questions),
                 'avg_time_per_question': (
                     total_time / len(questions) if len(questions) > 0 else 0.0
                 ),
@@ -304,19 +327,9 @@ class ComprehensiveEvaluator:
                 for metric_name, value in result['metrics'].items():
                     if value is not None:
                         metric_values[metric_name].append(value)
-                # for metric_name, value in result['metrics'].items():
-                #     metric_values[metric_name].append(value)
                 latencies.append(result['latency_ms'])
         
         aggregate_metrics = {}
-        # for metric_name, values in metric_values.items():
-        #     aggregate_metrics[metric_name] = {
-        #         'mean': float(np.mean(values)),
-        #         'std': float(np.std(values)),
-        #         'min': float(np.min(values)),
-        #         'max': float(np.max(values)),
-        #         'median': float(np.median(values)),
-        #     }
         for metric_name, values in metric_values.items():
             if len(values) == 0:
                 continue
@@ -384,21 +397,27 @@ class ComprehensiveEvaluator:
             }
         
         # Latency statistics
-        latency_stats = {
-            'mean_ms': float(np.mean(latencies)),
-            'median_ms': float(np.median(latencies)),
-            'std_ms': float(np.std(latencies)),
-            'min_ms': float(np.min(latencies)),
-            'max_ms': float(np.max(latencies)),
-            'p95_ms': float(np.percentile(latencies, 95)),
-            'p99_ms': float(np.percentile(latencies, 99)),
-        }
+        if latencies:
+            latency_stats = {
+                'mean_ms': float(np.mean(latencies)),
+                'median_ms': float(np.median(latencies)),
+                'std_ms': float(np.std(latencies)),
+                'min_ms': float(np.min(latencies)),
+                'max_ms': float(np.max(latencies)),
+                'p95_ms': float(np.percentile(latencies, 95)),
+                'p99_ms': float(np.percentile(latencies, 99)),
+            }
+        else:
+            latency_stats = {
+                'mean_ms': 0.0, 'median_ms': 0.0, 'std_ms': 0.0,
+                'min_ms': 0.0, 'max_ms': 0.0, 'p95_ms': 0.0, 'p99_ms': 0.0,
+            }
         
         # Failure analysis
         failures = [r for r in results if not r['metrics'].get('found', False)]
         failure_analysis = {
             'total_failures': len(failures),
-            'failure_rate': len(failures) / len(results),
+            'failure_rate': len(failures) / len(results) if results else 0.0,
             'failures_by_type': {},
             'failures_by_difficulty': {},
             'sample_failures': []
@@ -420,9 +439,6 @@ class ComprehensiveEvaluator:
                 'type': failure.get('question_type'),
                 'difficulty': failure.get('difficulty'),
             })
-            
-            # type_failures[failure.get('question_type', 'unknown')] += 1
-            # diff_failures[failure.get('difficulty', 'unknown')] += 1
         
         failure_analysis['failures_by_type'] = dict(type_failures)
         failure_analysis['failures_by_difficulty'] = dict(diff_failures)
@@ -608,10 +624,10 @@ def main():
         help='Path to evaluation_questions.json'
     )
     parser.add_argument(
-    '--resume',
-    type=str,
-    default=None,
-    help='Path to progress JSON file to resume from'
+        '--resume',
+        type=str,
+        default=None,
+        help='Path to progress JSON file to resume from'
     )
     parser.add_argument(
         '--collection',
@@ -658,9 +674,21 @@ def main():
         default=25,
         help='Save progress every N questions (0 to disable)'
     )
-    
+    parser.add_argument(
+        '--eval-mode',
+        type=str,
+        choices=['document', 'chunk'],
+        default=None,
+        help='Evaluation mode: "document" or "chunk" (overrides EVALUATION_MODE constant)'
+    )
+
     args = parser.parse_args()
-    
+
+    # Override module-level EVALUATION_MODE if CLI argument provided
+    global EVALUATION_MODE
+    if args.eval_mode is not None:
+        EVALUATION_MODE = args.eval_mode
+
     # Load questions
     logger.info(f"Loading questions from {args.questions}...")
     with open(args.questions, 'r') as f:
@@ -688,12 +716,6 @@ def main():
     
     # Run evaluation
     logger.info("\nStarting evaluation...\n")
-    # results = evaluator.evaluate_all(
-    #     questions,
-    #     top_k=args.top_k,
-    #     verbose=args.verbose,
-    #     save_progress_every=args.save_progress
-    # )
     results = evaluator.evaluate_all(
         questions,
         top_k=args.top_k,
@@ -702,7 +724,6 @@ def main():
         resume_file=args.resume
     )
 
-    
     # Print summary
     print_detailed_summary(results)
     
@@ -712,16 +733,13 @@ def main():
     # Generate summary file
     summary_path = args.output.replace('.json', '_summary.txt')
     with open(summary_path, 'w') as f:
-        import sys
-        from io import StringIO
-        
         old_stdout = sys.stdout
-        sys.stdout = StringIO()
-        
-        print_detailed_summary(results)
-        
-        summary_text = sys.stdout.getvalue()
-        sys.stdout = old_stdout
+        try:
+            sys.stdout = StringIO()
+            print_detailed_summary(results)
+            summary_text = sys.stdout.getvalue()
+        finally:
+            sys.stdout = old_stdout
         
         f.write(summary_text)
     

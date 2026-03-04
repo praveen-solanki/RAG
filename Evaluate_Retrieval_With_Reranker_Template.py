@@ -44,7 +44,10 @@ import nltk
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
-    nltk.download('punkt', quiet=True)
+    try:
+        nltk.download('punkt_tab', quiet=True)
+    except Exception:
+        nltk.download('punkt', quiet=True)
 
 # ================= CONFIG =================
 
@@ -169,7 +172,7 @@ class OllamaBGEM3:
             if response.status_code == 200:
                 logger.info(f"✓ Ollama available at {self.base_url}")
                 return True
-        except:
+        except Exception:
             logger.warning(f"✗ Ollama not available at {self.base_url}")
         return False
     
@@ -200,10 +203,15 @@ class OllamaBGEM3:
         """Rerank documents using BGE-M3"""
         scores = []
         
+        # Encode query once outside the loop
+        try:
+            query_emb = self.encode([query])[0]
+        except Exception as e:
+            logger.warning(f"Failed to encode query for reranking: {e}")
+            return [0.0] * len(documents)
+
         for doc in documents:
             try:
-                # Use embedding similarity as reranking score
-                query_emb = self.encode([query])[0]
                 doc_emb = self.encode([doc])[0]
                 
                 # Cosine similarity
@@ -217,34 +225,6 @@ class OllamaBGEM3:
                 scores.append(0.0)
         
         return scores
-
-
-# class BM25Encoder:
-#     """BM25 query encoder"""
-    
-#     def __init__(self, vocabulary: Optional[Dict[str, int]] = None):
-#         self.vocabulary = vocabulary or {}
-    
-#     def encode_query(self, query: str) -> SparseVector:
-#         """Encode query to BM25 sparse vector"""
-#         tokens = [t.lower() for t in word_tokenize(query) if t.isalnum()]
-        
-#         token_counts = {}
-#         for token in tokens:
-#             if token in self.vocabulary:
-#                 token_counts[token] = token_counts.get(token, 0) + 1
-        
-#         indices = []
-#         values = []
-        
-#         for token, count in token_counts.items():
-#             if token in self.vocabulary:
-#                 idx = self.vocabulary[token]
-#                 indices.append(idx)
-#                 # Simple TF weighting
-#                 values.append(count / len(tokens) if tokens else 0.0)
-        
-#         return SparseVector(indices=indices, values=values)
 
 class BM25Encoder:
     """BM25 query encoder"""
@@ -391,13 +371,11 @@ class HybridRetriever:
                 try:
                     self.reranker = CrossEncoder(RERANKER_MODEL)
                     logger.info(f"✓ Loaded reranker: {RERANKER_MODEL}")
-                except:
+                except Exception:
                     self.reranker = None
                     logger.warning("✗ No reranker available")
         else:
             self.reranker = None
-        
-        # Initialize components
         
         # Initialize components — load BM25 vocab and IDF from ingestion
         bm25_vocab = {}

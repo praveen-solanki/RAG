@@ -9,12 +9,14 @@ Features:
 - Multi-vector storage in Qdrant
 - Semantic chunking with sentence boundaries
 """
+import argparse
 import json
 import numpy as np
 import os
 import re
 import hashlib
 import uuid
+import time
 from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,7 +46,10 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
-    nltk.download('punkt', quiet=True)
+    try:
+        nltk.download('punkt_tab', quiet=True)
+    except Exception:
+        nltk.download('punkt', quiet=True)
 
 # ================= CONFIG =================
 
@@ -55,7 +60,6 @@ QDRANT_URL = "http://localhost:7333"
 # Embedding options
 USE_OLLAMA_BGE_M3 = True  # Set to True to use Ollama BGE-M3
 OLLAMA_URL = "http://localhost:11434"
-# OLLAMA_MODEL = "bge-large"
 OLLAMA_MODEL = "bge-m3:latest"
 
 # Fallback to SentenceTransformer if Ollama unavailable
@@ -73,8 +77,10 @@ SECTION_PATTERNS = [
     r'^#{1,6}\s+(.+)$',  # Markdown headers
     r'^([A-Z][^.!?]*):$',  # Title case with colon
     r'^\d+\.\s+([A-Z].+)$',  # Numbered sections
-    r'^([A-Z\s]+)$',  # All caps headers
+    r'^([A-Z\s]{3,})$',  # All caps headers (min 3 chars)
 ]
+
+BM25_OUTPUT = "bm25_index.json"
 
 # =========================================
 
@@ -94,6 +100,11 @@ class DocumentSection:
     level: int
     page_number: Optional[int] = None
     section_type: str = "text"  # text, table, list, code
+    section_hierarchy: List[str] = None
+
+    def __post_init__(self):
+        if self.section_hierarchy is None:
+            self.section_hierarchy = [self.title]
 
 
 @dataclass
@@ -120,11 +131,18 @@ class OllamaBGEM3Embedder:
         self._test_connection()
     
     def _test_connection(self):
-        """Test Ollama connection"""
+        """Test Ollama connection and verify model availability"""
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             if response.status_code == 200:
                 logger.info(f"✓ Connected to Ollama at {self.base_url}")
+                # Verify the requested model is available
+                available_models = [m.get("name", "") for m in response.json().get("models", [])]
+                if self.model not in available_models:
+                    logger.warning(
+                        f"Model '{self.model}' not found in Ollama. "
+                        f"Available: {available_models}"
+                    )
             else:
                 raise ConnectionError("Ollama not responding")
         except Exception as e:
@@ -132,30 +150,35 @@ class OllamaBGEM3Embedder:
             raise
     
     def encode(self, texts: List[str], batch_size: int = 8, show_progress_bar: bool = False) -> List[List[float]]:
-        """Encode texts using Ollama BGE-M3"""
+        """Encode texts using Ollama BGE-M3 with retry logic"""
         embeddings = []
         
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             
             for text in batch:
-                try:
-                    response = requests.post(
-                        f"{self.base_url}/api/embeddings",
-                        json={"model": self.model, "prompt": text},
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 200:
-                        embedding = response.json()["embedding"]
-                        embeddings.append(embedding)
-                    else:
-                        logger.warning(f"Failed to get embedding, skipping chunk")
-                        embeddings.append(None)  # ← None instead of zeros
-                                            
-                except Exception as e:
-                    logger.warning(f"Embedding error: {e}, skipping chunk")
-                    embeddings.append(None)
+                embedding = None
+                for attempt in range(3):
+                    try:
+                        response = requests.post(
+                            f"{self.base_url}/api/embeddings",
+                            json={"model": self.model, "prompt": text},
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            embedding = response.json()["embedding"]
+                            break
+                        else:
+                            logger.warning(f"Embedding attempt {attempt+1} failed with status {response.status_code}")
+                    except Exception as e:
+                        logger.warning(f"Embedding attempt {attempt+1} error: {e}")
+                    if attempt < 2:
+                        time.sleep(2 ** attempt)
+
+                if embedding is None:
+                    logger.warning(f"Failed to get embedding after 3 attempts, skipping chunk")
+                embeddings.append(embedding)
             
             if show_progress_bar and (i // batch_size) % 10 == 0:
                 logger.info(f"Encoded {min(i + batch_size, len(texts))}/{len(texts)} texts")
@@ -205,11 +228,21 @@ class SectionAwareChunker:
             if is_header and len(line_stripped) < 200:  # Headers shouldn't be too long
                 # Save previous section
                 if current_section["content"].strip():
+                    # Build hierarchy from stack
+                    hierarchy = [s["title"] for s in section_stack if s["title"]]
+                    # Detect table section type
+                    section_type = "table" if current_section["title"].startswith("[Table ") else "text"
                     sections.append(DocumentSection(
                         title=current_section["title"],
                         content=current_section["content"].strip(),
-                        level=current_section["level"]
+                        level=current_section["level"],
+                        section_type=section_type,
+                        section_hierarchy=list(hierarchy),
                     ))
+                
+                # Pop stack entries at same or deeper level
+                while len(section_stack) > 1 and section_stack[-1]["level"] >= header_level:
+                    section_stack.pop()
                 
                 # Start new section
                 current_section = {
@@ -223,20 +256,49 @@ class SectionAwareChunker:
         
         # Add final section
         if current_section["content"].strip():
+            hierarchy = [s["title"] for s in section_stack if s["title"]]
+            section_type = "table" if current_section["title"].startswith("[Table ") else "text"
             sections.append(DocumentSection(
                 title=current_section["title"],
                 content=current_section["content"].strip(),
-                level=current_section["level"]
+                level=current_section["level"],
+                section_type=section_type,
+                section_hierarchy=list(hierarchy),
             ))
         
         return sections if sections else [DocumentSection("Document", text, 0)]
     
-    def chunk_with_sentences(self, text: str, section_title: str = "") -> List[EnrichedChunk]:
+    def _split_long_sentence(self, sentence: str) -> List[str]:
+        """Split a sentence exceeding MAX_CHUNK_SIZE at word boundaries"""
+        if len(sentence) <= MAX_CHUNK_SIZE:
+            return [sentence]
+        words = sentence.split()
+        parts = []
+        current = ""
+        for word in words:
+            if len(current) + len(word) + 1 > MAX_CHUNK_SIZE and current:
+                parts.append(current.strip())
+                current = word
+            else:
+                current = current + " " + word if current else word
+        if current.strip():
+            parts.append(current.strip())
+        return parts
+
+    def chunk_with_sentences(self, text: str, section_title: str = "", section_hierarchy: Optional[List[str]] = None) -> List[EnrichedChunk]:
         """Chunk text respecting sentence boundaries"""
         if not text or len(text) < MIN_CHUNK_SIZE:
             return []
         
-        sentences = sent_tokenize(text)
+        if section_hierarchy is None:
+            section_hierarchy = [section_title]
+
+        raw_sentences = sent_tokenize(text)
+        # Enforce MAX_CHUNK_SIZE by splitting long sentences
+        sentences = []
+        for s in raw_sentences:
+            sentences.extend(self._split_long_sentence(s))
+
         chunks = []
         current_chunk = ""
         current_start = 0
@@ -248,7 +310,7 @@ class SectionAwareChunker:
                 chunks.append(EnrichedChunk(
                     text=current_chunk.strip(),
                     section_title=section_title,
-                    section_hierarchy=[section_title],
+                    section_hierarchy=section_hierarchy,
                     page_number=None,
                     chunk_type="text",
                     word_count=len(word_tokenize(current_chunk)),
@@ -258,9 +320,10 @@ class SectionAwareChunker:
                 ))
                 
                 # Start new chunk with overlap
+                old_chunk_len = len(current_chunk)
                 overlap_text = current_chunk[-self.overlap:] if len(current_chunk) > self.overlap else current_chunk
                 current_chunk = overlap_text + " " + sentence
-                current_start += len(current_chunk) - len(overlap_text)
+                current_start += old_chunk_len - len(overlap_text)
             else:
                 current_chunk += " " + sentence if current_chunk else sentence
         
@@ -269,7 +332,7 @@ class SectionAwareChunker:
             chunks.append(EnrichedChunk(
                 text=current_chunk.strip(),
                 section_title=section_title,
-                section_hierarchy=[section_title],
+                section_hierarchy=section_hierarchy,
                 page_number=None,
                 chunk_type="text",
                 word_count=len(word_tokenize(current_chunk)),
@@ -285,68 +348,18 @@ class SectionAwareChunker:
         all_chunks = []
         
         for section in sections:
-            section_chunks = self.chunk_with_sentences(section.content, section.title)
+            # Build hierarchy path from section level
+            hierarchy = section.section_hierarchy if hasattr(section, 'section_hierarchy') else [section.title]
+            section_chunks = self.chunk_with_sentences(section.content, section.title, hierarchy)
             
             # Add section metadata
             for chunk in section_chunks:
                 chunk.page_number = section.page_number
+                chunk.chunk_type = section.section_type
             
             all_chunks.extend(section_chunks)
         
         return all_chunks
-
-
-# class BM25Index:
-#     """BM25 sparse vector index"""
-    
-#     def __init__(self):
-#         self.bm25 = None
-#         self.tokenized_corpus = []
-#         self.vocabulary = {}
-#         self.idf = {}
-    
-#     def fit(self, texts: List[str]):
-#         """Build BM25 index"""
-#         self.tokenized_corpus = [self._tokenize(text) for text in texts]
-#         self.bm25 = BM25Okapi(self.tokenized_corpus)
-        
-#         # Build vocabulary
-#         all_tokens = set()
-#         for tokens in self.tokenized_corpus:
-#             all_tokens.update(tokens)
-        
-#         self.vocabulary = {token: idx for idx, token in enumerate(sorted(all_tokens))}
-        
-#         # Calculate IDF
-#         self.idf = self.bm25.idf
-    
-#     def _tokenize(self, text: str) -> List[str]:
-#         """Tokenize text for BM25"""
-#         return [token.lower() for token in word_tokenize(text) if token.isalnum()]
-    
-#     def get_sparse_vector(self, text: str) -> SparseVector:
-#         """Get BM25 sparse vector for text"""
-#         tokens = self._tokenize(text)
-#         token_counts = {}
-        
-#         for token in tokens:
-#             if token in self.vocabulary:
-#                 token_counts[token] = token_counts.get(token, 0) + 1
-        
-#         # Create sparse vector
-#         indices = []
-#         values = []
-        
-#         for token, count in token_counts.items():
-#             if token in self.vocabulary:
-#                 idx = self.vocabulary[token]
-#                 indices.append(idx)
-#                 # Simple TF-IDF weighting
-#                 tf = count / len(tokens) if tokens else 0
-#                 idf = self.idf.get(self.tokenized_corpus[0].index(token) if token in self.tokenized_corpus[0] else 0, 1.0)
-#                 values.append(tf * idf)
-        
-#         return SparseVector(indices=indices, values=values)
 
 
 class BM25Index:
@@ -509,9 +522,12 @@ class AdvancedDocumentLoader:
 
 
 def file_hash(path: str) -> str:
-    """Generate SHA256 hash of file"""
+    """Generate SHA256 hash of file using block-wise reading"""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
+        for block in iter(lambda: f.read(65536), b""):
+            h.update(block)
+    return h.hexdigest()
 
 
 def already_indexed(client: QdrantClient, collection: str, file_hash_value: str) -> bool:
@@ -522,25 +538,46 @@ def already_indexed(client: QdrantClient, collection: str, file_hash_value: str)
         )
         points, _ = client.scroll(collection_name=collection, scroll_filter=filt, limit=1)
         return len(points) > 0
-    except:
+    except Exception as e:
+        logger.warning(f"Could not check if file is already indexed: {e}")
         return False
 
 
 def main():
     """Main ingestion pipeline"""
-    
+
+    parser = argparse.ArgumentParser(description="Advanced RAG Ingestion System")
+    parser.add_argument('--data-dir', type=str, default=DATA_DIR, help='Directory containing documents')
+    parser.add_argument('--collection', type=str, default=COLLECTION, help='Qdrant collection name')
+    parser.add_argument('--qdrant-url', type=str, default=QDRANT_URL, help='Qdrant server URL')
+    parser.add_argument('--ollama-url', type=str, default=OLLAMA_URL, help='Ollama server URL')
+    parser.add_argument('--ollama-model', type=str, default=OLLAMA_MODEL, help='Ollama embedding model name')
+    parser.add_argument('--chunk-size', type=int, default=CHUNK_SIZE, help='Chunk size in characters')
+    parser.add_argument('--chunk-overlap', type=int, default=CHUNK_OVERLAP, help='Chunk overlap in characters')
+    parser.add_argument('--bm25-output', type=str, default=BM25_OUTPUT, help='Path to save BM25 index JSON')
+    args = parser.parse_args()
+
+    data_dir = args.data_dir
+    collection = args.collection
+    qdrant_url = args.qdrant_url
+    ollama_url = args.ollama_url
+    ollama_model = args.ollama_model
+    chunk_size = args.chunk_size
+    chunk_overlap = args.chunk_overlap
+    bm25_output = args.bm25_output
+
     logger.info("="*80)
     logger.info("ADVANCED RAG INGESTION SYSTEM")
     logger.info("="*80)
     
     # Initialize Qdrant client
-    client = QdrantClient(url=QDRANT_URL)
+    client = QdrantClient(url=qdrant_url)
     
     # Initialize embedding model
     if USE_OLLAMA_BGE_M3:
         try:
-            logger.info(f"Using Ollama BGE-M3 model at {OLLAMA_URL}")
-            embedder = OllamaBGEM3Embedder(OLLAMA_URL, OLLAMA_MODEL)
+            logger.info(f"Using Ollama BGE-M3 model at {ollama_url}")
+            embedder = OllamaBGEM3Embedder(ollama_url, ollama_model)
             embedding_dim = embedder.dimension
         except Exception as e:
             logger.warning(f"Ollama unavailable, falling back to {FALLBACK_MODEL}")
@@ -551,13 +588,13 @@ def main():
         embedder = SentenceTransformer(FALLBACK_MODEL)
         embedding_dim = 384
     
-    # Create collection with hybrid search support
+    # Create collection with hybrid search support, checking for dimension mismatch
     existing = [c.name for c in client.get_collections().collections]
-    if COLLECTION not in existing:
+    if collection not in existing:
         client.create_collection(
-            collection_name=COLLECTION,
+            collection_name=collection,
             vectors_config={
-                "dense": VectorParams(          # ← change from positional to named
+                "dense": VectorParams(
                     size=embedding_dim,
                     distance=Distance.COSINE,
                 )
@@ -570,24 +607,32 @@ def main():
                 )
             },
         )
-        logger.info(f"✓ Created collection: {COLLECTION}")
+        logger.info(f"✓ Created collection: {collection}")
     else:
-        logger.info(f"✓ Collection exists: {COLLECTION}")
+        # Check for dimension mismatch
+        col_info = client.get_collection(collection)
+        existing_dim = col_info.config.params.vectors.get("dense").size if hasattr(col_info.config.params.vectors, "get") else None
+        if existing_dim is not None and existing_dim != embedding_dim:
+            logger.error(
+                f"✗ Dimension mismatch: collection '{collection}' has {existing_dim}-dim vectors, "
+                f"but current embedder produces {embedding_dim}-dim vectors. Aborting."
+            )
+            return
+        logger.info(f"✓ Collection exists: {collection}")
     
     # Initialize components
-    chunker = SectionAwareChunker(CHUNK_SIZE, CHUNK_OVERLAP)
+    chunker = SectionAwareChunker(chunk_size, chunk_overlap)
     bm25_index = BM25Index()
     loader = AdvancedDocumentLoader()
     
     # Process files
     total_chunks = 0
     total_files = 0
-    all_texts_for_bm25 = []
     all_points = []
     
     logger.info("\nPhase 1: Loading and chunking documents...")
     
-    for root, _, files in os.walk(DATA_DIR):
+    for root, _, files in os.walk(data_dir):
         for file in files:
             if not file.lower().endswith((".pdf", ".docx", ".txt")):
                 continue
@@ -598,7 +643,7 @@ def main():
             try:
                 h = file_hash(path)
                 
-                if already_indexed(client, COLLECTION, h):
+                if already_indexed(client, collection, h):
                     logger.info("  ⊘ Already indexed")
                     continue
                 
@@ -620,9 +665,7 @@ def main():
                 if not chunks:
                     continue
                 
-                # Prepare for BM25 and embeddings
                 chunk_texts = [chunk.text for chunk in chunks]
-                all_texts_for_bm25.extend(chunk_texts)
                 
                 # Generate embeddings
                 logger.info(f"  ⚡ Generating embeddings...")
@@ -637,7 +680,7 @@ def main():
                     )
                     embeddings = [emb.tolist() for emb in embeddings]
                 
-                # Create points
+                # Create points — only for chunks with successful embeddings
                 for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                     if embedding is None:
                         logger.warning(f"  ⚠ Skipping chunk {i} — embedding failed")
@@ -651,7 +694,7 @@ def main():
                             "content": chunk.text,
                             "source_path": path,
                             "filename": file,
-                            "folder": os.path.relpath(root, DATA_DIR),
+                            "folder": os.path.relpath(root, data_dir),
                             "file_type": Path(file).suffix.lower(),
                             "file_hash": h,
                             "chunk_id": i,
@@ -666,9 +709,9 @@ def main():
                         }
                     }
                     all_points.append((point, chunk.text))
+                    total_chunks += 1
                 
                 total_files += 1
-                total_chunks += len(chunks)
                 
             except Exception as e:
                 logger.error(f"  ✗ Error: {e}")
@@ -678,18 +721,21 @@ def main():
         logger.warning("No documents to index!")
         return
     
+    # Collect BM25 texts only from successfully-embedded chunks
+    all_texts_for_bm25 = [text for _, text in all_points]
+
     # Build BM25 index
     logger.info(f"\nPhase 2: Building BM25 index for {len(all_texts_for_bm25)} chunks...")
     bm25_index.fit(all_texts_for_bm25)
     
-    # Save BM25 vocabulary and IDF for retrieval
+    # Save BM25 vocabulary and IDF for retrieval (convert numpy floats to Python floats)
     bm25_data = {
         "vocabulary": bm25_index.vocabulary,
-        "token_idf": bm25_index.token_idf,
+        "token_idf": {k: float(v) for k, v in bm25_index.token_idf.items()},
     }
-    with open("bm25_index.json", "w") as f:
+    with open(bm25_output, "w") as f:
         json.dump(bm25_data, f)
-    logger.info("  ✓ Saved BM25 index to bm25_index.json")
+    logger.info(f"  ✓ Saved BM25 index to {bm25_output}")
     
     # Add sparse vectors and upload
     logger.info("\nPhase 3: Adding sparse vectors and uploading to Qdrant...")
@@ -698,14 +744,6 @@ def main():
     for point_data, text in all_points:
         sparse_vector = bm25_index.get_sparse_vector(text)
         
-        # point_struct = PointStruct(
-        #     id=point_data["id"],
-        #     vector={
-        #         "": point_data["vector"],  # Dense vector (default)
-        #         "bm25": sparse_vector  # Sparse vector
-        #     },
-        #     payload=point_data["payload"]
-        # )
         point_struct = PointStruct(
             id=point_data["id"],
             vector={
@@ -720,7 +758,7 @@ def main():
     batch_size = 100
     for i in range(0, len(points_to_upload), batch_size):
         batch = points_to_upload[i:i + batch_size]
-        client.upsert(collection_name=COLLECTION, points=batch, wait=True)
+        client.upsert(collection_name=collection, points=batch, wait=True)
         logger.info(f"  ✓ Uploaded batch {i//batch_size + 1}/{(len(points_to_upload)-1)//batch_size + 1}")
     
     # Summary
@@ -730,7 +768,7 @@ def main():
     logger.info(f"✓ Files processed: {total_files}")
     logger.info(f"✓ Total chunks: {total_chunks}")
     logger.info(f"✓ Avg chunks/file: {total_chunks/total_files if total_files > 0 else 0:.1f}")
-    logger.info(f"✓ Collection: {COLLECTION}")
+    logger.info(f"✓ Collection: {collection}")
     logger.info(f"✓ Embedding dimension: {embedding_dim}")
     logger.info(f"✓ BM25 vocabulary size: {len(bm25_index.vocabulary)}")
     logger.info("="*80)
