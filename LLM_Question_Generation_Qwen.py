@@ -181,7 +181,7 @@ LLM-assigned difficulty: {original_difficulty}
 Respond with ONLY a valid JSON object (no markdown, no extra text):
 {{
   "true_difficulty": "easy|medium|hard",
-  "confidence": 0.0,
+  "confidence": 0.85,
   "reasoning": "one sentence explanation",
   "is_mislabeled": false
 }}"""
@@ -657,11 +657,7 @@ class QuestionGenerator:
             return _reject("Answer too short")
 
         # --- Trivial-easy labeled as hard ---
-        trivial_prefixes = re.compile(
-            r"^\s*(what is|what are|define|name the|list the|who is|who was)",
-            re.IGNORECASE,
-        )
-        if difficulty == "hard" and trivial_prefixes.match(q_text):
+        if difficulty == "hard" and DifficultyScorer.SIMPLE_LOOKUP_PATTERNS.match(q_text):
             return _reject("Trivially easy question labeled as hard")
 
         # --- Exact duplicate ---
@@ -1092,14 +1088,14 @@ def process_dataset(dataset_path: str, output_path: str, questions_per_doc: int 
     print("RAG EVALUATION QUESTION GENERATOR - OLLAMA VERSION")
     print("=" * 80)
     print(f"Dataset Path:          {dataset_path}")
-    print(f"Questions per Document:{questions_per_doc}")
+    print(f"Questions per Document: {questions_per_doc}")
     print(f"Output:                {output_path}")
     print(f"LLM Model:             {OLLAMA_MODEL}")
     print(f"Max Retries:           {MAX_RETRIES}")
     print(f"Chunk Size:            {CHUNK_SIZE} chars (overlap: {CHUNK_OVERLAP})")
     print(f"Semantic dedup:        {ENABLE_SEMANTIC_DEDUP}")
     print(f"LLM Judge:             {ENABLE_LLM_JUDGE}")
-    print(f"Difficulty enforcement:{DIFFICULTY_ENFORCEMENT}")
+    print(f"Difficulty enforcement: {DIFFICULTY_ENFORCEMENT}")
     print("=" * 80)
 
     # Initialize components
