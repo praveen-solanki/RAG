@@ -1,0 +1,121 @@
+
+====================================================================================================
+COMPREHENSIVE EVALUATION RESULTS
+====================================================================================================
+
+📊 OVERVIEW:
+   Total Questions: 11
+   Total Time: 0.02 minutes
+   Avg Time/Question: 0.13 seconds
+   Timestamp: 2026-03-02 10:15:34
+
+----------------------------------------------------------------------------------------------------
+OVERALL PERFORMANCE
+----------------------------------------------------------------------------------------------------
+
+✅ SUCCESS RATE: 36.36% (4/11)
+
+🎯 MEAN RECIPROCAL RANK: 0.3636
+
+📍 PRECISION @ K:
+   P@ 1: 0.3636 ± 0.4810 (min: 0.0000, max: 1.0000)
+   P@ 3: 0.3636 ± 0.4810 (min: 0.0000, max: 1.0000)
+   P@ 5: 0.3636 ± 0.4810 (min: 0.0000, max: 1.0000)
+   P@10: 0.3636 ± 0.4810 (min: 0.0000, max: 1.0000)
+
+📊 NDCG @ K:
+   NDCG@ 1: 0.3636
+   NDCG@ 3: 0.3636
+   NDCG@ 5: 0.3636
+   NDCG@10: 0.3636
+
+----------------------------------------------------------------------------------------------------
+LATENCY STATISTICS
+----------------------------------------------------------------------------------------------------
+
+   Mean:   127.86 ms
+   Median: 132.70 ms
+   Std:    14.42 ms
+   Min:    99.75 ms
+   Max:    146.11 ms
+   P95:    143.48 ms
+   P99:    145.59 ms
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY QUESTION TYPE
+----------------------------------------------------------------------------------------------------
+
+Type               Count    Success        MRR        P@5
+----------------------------------------------------------------------------------------------------
+lookup                 3    33.33%     0.3333     0.3333
+parameter_extraction        3    33.33%     0.3333     0.3333
+relationship           3    33.33%     0.3333     0.3333
+requirement_tracing        2    50.00%     0.5000     0.5000
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY DIFFICULTY
+----------------------------------------------------------------------------------------------------
+
+Difficulty         Count    Success        MRR        P@5
+----------------------------------------------------------------------------------------------------
+easy                   3    33.33%     0.3333     0.3333
+hard                   3    33.33%     0.3333     0.3333
+hardest                2    50.00%     0.5000     0.5000
+medium                 3    33.33%     0.3333     0.3333
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY DOCUMENT
+----------------------------------------------------------------------------------------------------
+
+Document                                              Qs    Success        MRR
+----------------------------------------------------------------------------------------------------
+General Specification of Transformers.pdf              4   100.00%     1.0000
+AUTOSAR Layered Software Architecture.pdf              3     0.00%     0.0000
+Utilization of Crypto Services.pdf                     4     0.00%     0.0000
+
+----------------------------------------------------------------------------------------------------
+FAILURE ANALYSIS
+----------------------------------------------------------------------------------------------------
+
+   Total Failures: 7 (63.64%)
+
+   Failures by Type:
+      lookup: 2
+      parameter_extraction: 2
+      relationship: 2
+      requirement_tracing: 1
+
+   Failures by Difficulty:
+      easy: 2
+      medium: 2
+      hard: 2
+      hardest: 1
+
+   Sample Failed Queries:
+
+   1. Question: What is the Document Identification Number for the Layered Software Architecture document?
+      Expected: AUTOSAR Layered Software Architecture.pdf
+      Got Top-3: General Specification of Transformers.pdf, General Specification of Transformers.pdf, General Specification of Transformers.pdf
+      Type: lookup, Difficulty: easy
+
+   2. Question: What is the data type of the parameter `DeviceIndex` in the `MemIf_Write` function?
+      Expected: AUTOSAR Layered Software Architecture.pdf
+      Got Top-3: General Specification of Transformers.pdf, General Specification of Transformers.pdf, General Specification of Transformers.pdf
+      Type: parameter_extraction, Difficulty: medium
+
+   3. Question: How does the addition of ICC clustering in version 2.1.15 relate to the architectural decisions made in R2.0, and what other changes were introduced alongside it?
+      Expected: AUTOSAR Layered Software Architecture.pdf
+      Got Top-3: General Specification of Transformers.pdf, General Specification of Transformers.pdf, General Specification of Transformers.pdf
+      Type: relationship, Difficulty: hard
+
+   4. Question: What is the purpose of this document according to the introduction?
+      Expected: Utilization of Crypto Services.pdf
+      Got Top-3: General Specification of Transformers.pdf, General Specification of Transformers.pdf, General Specification of Transformers.pdf
+      Type: lookup, Difficulty: easy
+
+   5. Question: What is the purpose of this document as described in section 1.1?
+      Expected: Utilization of Crypto Services.pdf
+      Got Top-3: General Specification of Transformers.pdf, General Specification of Transformers.pdf, General Specification of Transformers.pdf
+      Type: parameter_extraction, Difficulty: medium
+
+====================================================================================================

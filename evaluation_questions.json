@@ -1,0 +1,912 @@
+{
+  "dataset_info": {
+    "total_documents": 10,
+    "total_questions": 100,
+    "generation_date": "2026-02-11 14:21:03",
+    "model_used": "bosch-gpt-4o-mini",
+    "questions_per_document": 10,
+    "dataset_path": "/home/olj3kor/praveen/RAG_work/DATASET/"
+  },
+  "questions": [
+    {
+      "question": "What is the purpose of transformers in AUTOSAR systems?",
+      "answer": "Transformers enable AUTOSAR systems to use a data transformation mechanism to linearize and transform data, facilitating intra-ECU and inter-ECU communication.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 7",
+      "id": "doc001_q001",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "Define 'reentrant' in the context of transformers.",
+      "answer": "'Reentrant' refers to a function or code segment that can be interrupted and safely called again ('re-entered') before its previous executions are complete. In the document, transformer Init and DeInit were changed from 'reentrant' to 'non reentrant'.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc001_q002",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "When was the error code E_SER_PAYLOAD_LENGTH_EXCEEDED added?",
+      "answer": "The error code E_SER_PAYLOAD_LENGTH_EXCEEDED was added on November 27, 2025, as part of the R25-11 Release.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc001_q003",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "List some of the changes made in the R24-11 Release.",
+      "answer": "In the R24-11 Release, changes included updating transformer Init and DeInit from 'reentrant' to 'non reentrant' and modifying supported configuration variants.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc001_q004",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "Why were certain changes made to the transformer parameters in the R25-11 Release?",
+      "answer": "The changes to transformer parameters were made to clarify their usage in the Client/Server case and to adapt the integration of LdCom into COM.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc001_q005",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "What is one significant difference between 'Synchronous' and 'Asynchronous' APIs as clarified in the document?",
+      "answer": "The document clarifies that 'Synchronous' APIs wait for a response from the operation before proceeding, while 'Asynchronous' APIs allow operations to be processed without waiting for a response.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 1",
+      "id": "doc001_q006",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "What are the two primary types of data elements involved in transformer function signatures?",
+      "answer": "The two primary types of data elements involved are Client/Server operation signatures and Sender/Receiver interface signatures.",
+      "question_type": "factoid",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc001_q007",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "Explain the significance of error codes in the context of E2E communication.",
+      "answer": "Error codes in E2E communication are essential for identifying and managing issues that arise during data transmission, ensuring reliable and efficient communication between components.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 2",
+      "id": "doc001_q008",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "How many pages does the document contain according to the provided content?",
+      "answer": "The document contains a total of 86 pages as indicated in the page numbering.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 6",
+      "id": "doc001_q009",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "What change was made to the document status in the R19-11 Release?",
+      "answer": "In the R19-11 Release, the document status was changed from 'Final' to 'published'.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc001_q010",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Adaptive Platform Machine Configuration?",
+      "answer": "The document identification number is 1112.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc002_q001",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "Define 'target-configuration' as used in the document.",
+      "answer": "Target-configuration refers to configuration whose scope is local to a target, such as ECU Configuration for an ECU instance on the AUTOSAR classic Platform, and Adaptive Platform Machine Configuration for a Machine on the AUTOSAR adaptive Platform.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc002_q002",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "When was the initial release of the Adaptive Platform Machine Configuration document?",
+      "answer": "The initial release of the document was on 2024-11-27.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc002_q003",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "List the two main types of models identified in the document.",
+      "answer": "The two main types of models identified are design models and target-configuration models.",
+      "question_type": "list",
+      "difficulty": "easy",
+      "page_reference": "Page 8",
+      "id": "doc002_q004",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "Why is the term 'target-configuration' preferred over 'deployment' in this document?",
+      "answer": "The term 'target-configuration' is preferred to avoid confusion, as 'deployment' is heavily overloaded with many meanings.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc002_q005",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "What changes were made in the R25-11 release compared to the previous version?",
+      "answer": "In the R25-11 release, support for interaction between functional clusters was added, along with parameters conforming to specific regular expressions and a reference to Traceable Management.",
+      "question_type": "comparison",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc002_q006",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "What is the purpose of the constraints mentioned in the document?",
+      "answer": "The constraints are used to constrain the interpretation of the AUTOSAR meta-model, allowing for the detection of violations of standardized behavior implemented in an instance of the meta-model.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 6",
+      "id": "doc002_q007",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "How many pages does the document contain?",
+      "answer": "The document contains 75 pages.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc002_q008",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "Enumerate the different types of parameters mentioned in the document.",
+      "answer": "The different types of parameters include Enumeration Parameter, Boolean Parameter, Integer Parameter, Float Parameter, Unrestricted String Parameter, and Restricted String Parameter.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 31",
+      "id": "doc002_q009",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "What is the document's status as of the latest release?",
+      "answer": "The document's status is published.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc002_q010",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "question": "What is the purpose of the document titled 'Utilization of Crypto Services'?",
+      "answer": "The purpose of the document is to introduce the user/integrator to the principle concepts of the AUTOSAR supported cryptographic functionality.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 5",
+      "id": "doc003_q001",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "Define the term 'CryptoDriverObject' as used in the document.",
+      "answer": "A CryptoDriverObject implements one or more CryptoDriverObjects and can offer different cryptoprimitives in hardware or software. These objects are independent of each other and can perform only one cryptoprimitive at a time.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc003_q002",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "When was the initial release of the document?",
+      "answer": "The initial release of the document was on March 15, 2013.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc003_q003",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "List the areas covered by the Crypto Service Manager (CSM) as mentioned in the document.",
+      "answer": "The areas covered by the CSM include hash calculation, message authentication code generation and verification, digital signature generation and verification, encryption and decryption, random number generation, and key management operations.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 9",
+      "id": "doc003_q004",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "Why does the AUTOSAR crypto stack not provide a security concept?",
+      "answer": "The AUTOSAR crypto stack offers cryptographic services that can be used to support and realize a certain security concept, but it does not define a specific security concept itself.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc003_q005",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "Compare the roles of the Crypto Service Manager (CSM) and the Crypto Interface (CRYIF).",
+      "answer": "The CSM controls concurrent access to cryptographic services and provides an abstraction layer for applications, while the CRYIF serves as a bridge between the CSM and the CRYPTO modules, mapping requests to appropriate cryptographic operations.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 9",
+      "id": "doc003_q006",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "What are the limitations mentioned in the document regarding the intended usage of the AUTOSAR specified cryptographic functionality?",
+      "answer": "The document states that there are no limitations specified regarding the intended usage of the AUTOSAR specified cryptographic functionality.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 5",
+      "id": "doc003_q007",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "Explain what a 'Job' is in the context of the document.",
+      "answer": "In the document, a 'Job' refers to a configured cryptoprimitive along with a referenced key, which is processed by the cryptographic system.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc003_q008",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "What date did the most recent release of the document occur?",
+      "answer": "The most recent release of the document occurred on November 27, 2025.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc003_q009",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "Enumerate the acronyms defined in the document and their meanings.",
+      "answer": "The acronyms defined in the document include BSW (Basic Software), CDD (Complex Device Driver), CRYIF (Crypto Interface), CRYPTO (Crypto Driver), CSM (Crypto Service Manager), HSM (Hardware Security Module), NvM (NVRAM Manager), RTE (Runtime Environment), SHE (Security Hardware Extension), and SWC (Software Component).",
+      "question_type": "list",
+      "difficulty": "hard",
+      "page_reference": "Page 6",
+      "id": "doc003_q010",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Requirements on Operating System Interface?",
+      "answer": "The document identification number is 718.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc004_q001",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "Define the term 'Operating System Interface (OSI)' as used in the document.",
+      "answer": "The Operating System Interface (OSI) is the functional cluster within the AUTOSAR Adaptive Platform that specifies the operating system interface used by adaptive applications and by the AUTOSAR Adaptive Platform itself.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc004_q002",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "When was the document last updated to C++17?",
+      "answer": "The document was last updated to C++17 on November 27, 2025.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc004_q003",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "List the two categories of requirements specified in the Operating System Interface requirement specification.",
+      "answer": "The two categories of requirements are those needed directly by the Adaptive Applications and those needed by the AUTOSAR Adaptive Platform to implement Functional Clusters.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 9",
+      "id": "doc004_q004",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "Why is the PSE51 profile considered sufficient for Adaptive Applications according to the document?",
+      "answer": "The PSE51 profile is considered sufficient because it offers functions for basic synchronized I/O, high-resolution timers, signals, semaphores, shared memory, and threads, which match the needs of Adaptive Applications that do not require forking new processes.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 10",
+      "id": "doc004_q005",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "Compare the changes made in the R25-11 release to those made in the R24-11 release.",
+      "answer": "In the R25-11 release, the changes included updating to C++17 and minor document clean-up, while the R24-11 release involved only minor changes and document clean-up.",
+      "question_type": "comparison",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc004_q006",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "What is the status of the document as of the last update?",
+      "answer": "The status of the document is 'published'.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc004_q007",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "Explain the purpose of the document according to the scope section.",
+      "answer": "The document specifies the requirements of the AUTOSAR Adaptive Platform on the Operating System that is part of the Foundation in the AUTOSAR Adaptive Platform.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc004_q008",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "What are the two main components that the Operating System is responsible for managing?",
+      "answer": "The Operating System is responsible for managing run-time resource management and time for all applications within the AUTOSAR Adaptive Platform.",
+      "question_type": "factoid",
+      "difficulty": "medium",
+      "page_reference": "Page 9",
+      "id": "doc004_q009",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "How many releases have been documented in the change history?",
+      "answer": "There have been a total of seven releases documented in the change history from R17-03 to R25-11.",
+      "question_type": "numeric",
+      "difficulty": "hard",
+      "page_reference": "Pages 1-2",
+      "id": "doc004_q010",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Layered Software Architecture?",
+      "answer": "The document identification number for the Layered Software Architecture is 53.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc005_q001",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "When was the release R25-11 of the document published?",
+      "answer": "The release R25-11 of the document was published on 2025-11-27.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc005_q002",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "What major changes were made in the R24-11 release?",
+      "answer": "In the R24-11 release, major changes included the addition of the L-SDU Router, incorporation of J1939Fscp transformer into communication stack extensions, and examples for partitioning.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 2",
+      "id": "doc005_q003",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "Define 'Layered Software Architecture' in the context of AUTOSAR.",
+      "answer": "Layered Software Architecture refers to a structured approach used in AUTOSAR that organizes software components into layers, facilitating modularity, scalability, and ease of integration.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc005_q004",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "How does the document handle error management in the R25-11 release?",
+      "answer": "In the R25-11 release, the document improved error handling documentation, emphasizing the usage and changes in error classification, which enhances the overall reliability of the software architecture.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 2",
+      "id": "doc005_q005",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "What changes were made to the memory manipulation library in the R24-11 release?",
+      "answer": "The R24-11 release added changes to the memory manipulation library including functionalities for Copy, Set, Move, and Compare.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 2",
+      "id": "doc005_q006",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "Why was the document's status changed from Final to published?",
+      "answer": "The document's status was changed from Final to published to indicate that it is now officially available for use, reflecting the completion of review and approval processes.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 3",
+      "id": "doc005_q007",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "What is the difference between release R24-11 and R25-11 regarding the addition of components?",
+      "answer": "Release R24-11 added the L-SDU Router and incorporated new partitioning examples, while release R25-11 added information about VDP and Mirror Management.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 2",
+      "id": "doc005_q008",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "List the document status updates provided in the change history.",
+      "answer": "The document status updates include changes to editorial content, changes in error handling, and the status change from Final to published as part of the update process.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 3",
+      "id": "doc005_q009",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "Who is responsible for the Layered Software Architecture document?",
+      "answer": "The document responsibility for the Layered Software Architecture is held by AUTOSAR.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc005_q010",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "question": "What is the purpose of the Operating System Tracing Interface as described in the document?",
+      "answer": "The purpose of the Operating System Tracing Interface is to provide an API for low-level tracing of tasks and processes, enabling analysis of timing information without significantly impacting the runtime behavior of the application.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 5",
+      "id": "doc006_q001",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "Define 'callingContext' as mentioned in the document.",
+      "answer": "'CallingContext' is a type that represents the current interrupt handling state, indicating whether interrupts are disabled, may be disabled, or cannot be disabled during the execution of ARTI hooks.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 9",
+      "id": "doc006_q002",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "When was the initial release of the document?",
+      "answer": "The initial release of the document was on November 23, 2023.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc006_q003",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "List the types of parameters carried by the ARTI interface.",
+      "answer": "The ARTI interface carries parameters such as callingContext, coreId, taskId, and processId.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 9",
+      "id": "doc006_q004",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "Why is the API intended to be used at the driver level of the operating system?",
+      "answer": "The API is intended for use at the driver level to avoid influencing the runtime behavior of the system, as tracing at the application or middleware levels could affect performance.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 5",
+      "id": "doc006_q005",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "Compare the terms 'task' and 'process' as described in the document.",
+      "answer": "In the document, a 'task' is defined as a schedulable unit (often referred to as a thread), while a 'process' is a mandatory environment that can hold several tasks, forming a hierarchical structure in the operating system.",
+      "question_type": "comparison",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc006_q006",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Technical Report on Operating System Tracing Interface?",
+      "answer": "The document identification number is 1083.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc006_q007",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "Explain the change made in the R24-11 release of the document.",
+      "answer": "In the R24-11 release, the 'draft' state was removed from the specification items, and there were corrections made to the API syntax for ArtiVersionInfoType and CallingContext, along with minor editorial changes.",
+      "question_type": "definition",
+      "difficulty": "hard",
+      "page_reference": "Page 1",
+      "id": "doc006_q008",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "What is the role of the OS/ARTI Adapter?",
+      "answer": "The OS/ARTI Adapter provides trace points at the OS level, facilitating the understanding, verification, and visualization of the timing behavior of the operating system.",
+      "question_type": "factoid",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc006_q009",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "Enumerate the changes made in the document according to the R25-11 release.",
+      "answer": "In the R25-11 release, there were no content changes made, and the document's status was updated to 'published.'",
+      "question_type": "list",
+      "difficulty": "hard",
+      "page_reference": "Page 1",
+      "id": "doc006_q010",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "What is the document identification number for the specification?",
+      "answer": "The document identification number for the specification is 1063.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc007_q001",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "Define 'Firewall' as per the document.",
+      "answer": "A Firewall is an automotive Ethernet security device that monitors incoming and outgoing network traffic and grants or rejects network access between two or more Electronic Control Units (ECUs) or between network zones.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc007_q002",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "When was the initial release of the document?",
+      "answer": "The initial release of the document was on November 24, 2022.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc007_q003",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "List the types of packet inspection mentioned in the document.",
+      "answer": "The types of packet inspection mentioned are stateless packet inspection, stateful packet inspection, and deep packet inspection.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 3",
+      "id": "doc007_q004",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "Why was access control added for the FirewallStateSwitchInterface?",
+      "answer": "Access control was added for the FirewallStateSwitchInterface to manage security events related to access violations and enhance the overall security of the firewall.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 1",
+      "id": "doc007_q005",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "How many releases are documented in the change history?",
+      "answer": "There are four releases documented in the change history: R25-11, R24-11, R23-11, and R22-11.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc007_q006",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "Explain the significance of the term 'Allowlist' in the context of the document.",
+      "answer": "'Allowlist' refers to a collection of Firewall Rules where network packets are permitted if they match a specified pattern, indicating that the packet is safe to pass through the firewall.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc007_q007",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "What are the two types of lists mentioned for managing network packets?",
+      "answer": "The two types of lists mentioned for managing network packets are Allowlists and Blocklists.",
+      "question_type": "list",
+      "difficulty": "easy",
+      "page_reference": "Page 7",
+      "id": "doc007_q008",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "Compare 'Stateless packet inspection' and 'Stateful packet inspection'.",
+      "answer": "Stateless packet inspection analyzes each packet independently without any context of the traffic flow, while stateful packet inspection keeps track of the state of active connections and makes decisions based on the context of the traffic.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 3",
+      "id": "doc007_q009",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "What does SEv stand for in the document, and what is its relevance?",
+      "answer": "SEv stands for Security Event, which is relevant as it refers to events generated by the firewall that indicate potential security breaches or access violations.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc007_q010",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Explanation of Service-Oriented Vehicle Diagnostics?",
+      "answer": "The document identification number is 1064.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc008_q001",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "Define SOVD.",
+      "answer": "SOVD stands for Service-Oriented Vehicle Diagnostics, a new standard introduced by ASAM aimed at providing a self-explaining protocol for vehicle diagnostics without dependency on external data descriptions.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 4",
+      "id": "doc008_q002",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "When was the initial release of the SOVD standard?",
+      "answer": "The initial release of the SOVD standard was on November 24, 2022.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc008_q003",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "List the main components of the SOVD reference architecture.",
+      "answer": "The main components of the SOVD reference architecture are the SOVD Gateway, Diagnostic Manager, and SOVD to UDS Translation.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc008_q004",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "Why was the SOVD standard introduced?",
+      "answer": "The SOVD standard was introduced to address the limitations of the existing UDS protocol, such as client-side data interpretation and hard dependencies on ODX files, by providing a self-explaining protocol that uses state-of-the-art technologies.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 4",
+      "id": "doc008_q005",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "Compare the handling of authorization in SOVD and UDS.",
+      "answer": "In SOVD, authorization is managed using OAuth tokens within the request header, allowing the Diagnostic Manager to confirm the authorization role. In contrast, UDS follows a different protocol without this explicit token-based authorization.",
+      "question_type": "comparison",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc008_q006",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "What changes were made in the R25-11 release on November 27, 2025?",
+      "answer": "The R25-11 release on November 27, 2025, included changes in the chapter for the use case 'SW Update'.",
+      "question_type": "factoid",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc008_q007",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "Explain the role of the Diagnostic Manager in the context of SOVD.",
+      "answer": "The Diagnostic Manager acts as an SOVD server, handling diagnostic services and supporting SOVD use cases while reusing existing UDS functionality as appropriate.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc008_q008",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "How does SOVD handle backend connectivity for diagnostics?",
+      "answer": "SOVD supports backend connectivity through a functional block that abstracts the backend connection and utilizes mDNS for discovery of the SOVD Gateway, while routing requests via HTTP.",
+      "question_type": "reasoning",
+      "difficulty": "hard",
+      "page_reference": "Page 7",
+      "id": "doc008_q009",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "What are the key properties of the ASAM SOVD standard?",
+      "answer": "The key properties of ASAM SOVD include central edge node communication, usage of state-of-the-art technologies, support for various diagnostic use cases, a self-explaining protocol, and compatibility with UDS.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 5",
+      "id": "doc008_q010",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Explanation of Sensor Interfaces?",
+      "answer": "The document identification number is 913.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc009_q001",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "Define 'Sensor Fusion Algorithm' as mentioned in the document.",
+      "answer": "The 'Sensor Fusion Algorithm' refers to the method utilized to combine data from different sensors to enhance the accuracy of environmental perception for automated driving functions.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 4",
+      "id": "doc009_q002",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "When was the initial release of the document?",
+      "answer": "The initial release of the document was on October 31, 2018.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc009_q003",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "List the intended audience for the document on Sensor Interfaces.",
+      "answer": "The intended audience includes System Designers, System Engineers, System Integrators, and Safety and Security Engineers.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc009_q004",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "Why is standardization of sensor interfaces important for automated driving functions?",
+      "answer": "Standardization is crucial because it reduces development and validation costs by ensuring compatibility and interchangeability between different sensor types and suppliers.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 6",
+      "id": "doc009_q005",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "Compare the requirements for sensor data in highway-only AEB systems versus urban AEB systems.",
+      "answer": "Highway-only AEB systems require less complex data from sensors, while urban AEB systems need additional information to differentiate between vehicles and pedestrians due to the presence of crossing traffic.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 6",
+      "id": "doc009_q006",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "What is the status of the document as of the last update?",
+      "answer": "The document status is 'published'.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc009_q007",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "Explain the role of the System Integrator in the context of sensor standardization.",
+      "answer": "The System Integrator requires a standardized description of the interface for the implementation of generic, testable software and to ensure interoperability between different implementations.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 7",
+      "id": "doc009_q008",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "What date marks the release of R21-11, and what was a significant change made then?",
+      "answer": "R21-11 was released on November 25, 2021, and a significant change was the addition of a reference to ISO 23150:2021.",
+      "question_type": "numeric",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc009_q009",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "What types of sensors are considered major enablers for automated driving according to the document?",
+      "answer": "The major sensors include camera, radar, lidar, and ultrasonic sensors.",
+      "question_type": "list",
+      "difficulty": "easy",
+      "page_reference": "Page 6",
+      "id": "doc009_q010",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "question": "What is the document identification number for the Specification of Raw Data Stream?",
+      "answer": "The document identification number is 1098.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc010_q001",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "Define 'RawDataStreamClient'.",
+      "answer": "The 'RawDataStreamClient' is a class defined in the API specification section of the document that encompasses functions for connecting to, reading from, and writing to a raw data stream.",
+      "question_type": "definition",
+      "difficulty": "medium",
+      "page_reference": "Page 8",
+      "id": "doc010_q002",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "When was the initial release of the Specification of Raw Data Stream?",
+      "answer": "The initial release of the Specification of Raw Data Stream was on November 23, 2023.",
+      "question_type": "numeric",
+      "difficulty": "easy",
+      "page_reference": "Page 1",
+      "id": "doc010_q003",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "List three components included in the Table of Contents.",
+      "answer": "The Table of Contents includes the following components: 1. Introduction and functional overview, 2. Acronyms and Abbreviations, 3. Related documentation.",
+      "question_type": "list",
+      "difficulty": "medium",
+      "page_reference": "Page 3",
+      "id": "doc010_q004",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "Why is the work released by AUTOSAR for information purposes only?",
+      "answer": "The work is released for information purposes only to clarify that AUTOSAR and its contributors shall not be liable for any misuse of the work.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 2",
+      "id": "doc010_q005",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "Compare the releases R24-11 and R25-11 in terms of changes made.",
+      "answer": "In release R24-11, an API for IEEE 1722 Audio Video Transport Protocol streams was added, while R25-11 included the renaming of 'RawErrorDomain' to 'RdsErrorDomain' along with editorial changes and bugfixes.",
+      "question_type": "comparison",
+      "difficulty": "hard",
+      "page_reference": "Page 1",
+      "id": "doc010_q006",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "What types of applications has the work been developed for?",
+      "answer": "The work has been developed specifically for automotive applications and has not been tested for non-automotive applications.",
+      "question_type": "factoid",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "id": "doc010_q007",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "Explain the purpose of the 'Access Control via IAM' section.",
+      "answer": "The 'Access Control via IAM' section outlines security measures related to authorization and access management for raw data streaming, helping to ensure that only authorized entities can access the data streams.",
+      "question_type": "reasoning",
+      "difficulty": "medium",
+      "page_reference": "Page 30",
+      "id": "doc010_q008",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "What changes were made in the R25-11 release on November 27, 2025?",
+      "answer": "In the R25-11 release, 'RawErrorDomain' was renamed to 'RdsErrorDomain', and editorial changes and bugfixes were applied.",
+      "question_type": "factoid",
+      "difficulty": "medium",
+      "page_reference": "Page 1",
+      "id": "doc010_q009",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "question": "Define 'AVTPDU-common-header'.",
+      "answer": "The 'AVTPDU-common-header' is a part of the AVTP (Audio Video Transport Protocol) that provides essential information for the stream, including synchronization and configuration details.",
+      "question_type": "definition",
+      "difficulty": "hard",
+      "page_reference": "Page 13",
+      "id": "doc010_q010",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    }
+  ]
+}

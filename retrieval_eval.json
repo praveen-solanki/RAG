@@ -1,0 +1,159 @@
+{
+  "dataset_info": {
+    "total_questions": 12,
+    "source_file": "/home/olj3kor/praveen/first.json"
+  },
+  "questions": [
+    {
+      "id": "doc011_q001",
+      "question": "What is the purpose of this documentation as stated in the document?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares: FWA-INDRV*-MPx-16VRS, FWA-INDRV*-MPx-17VRS, FWA-INDRV*-MPx-18VRS. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares:",
+        "It assists machine operators and installation programmers with troubleshooting."
+      ],
+      "page_reference": "Page 2",
+      "difficulty": "easy",
+      "question_type": "lookup"
+    },
+    {
+      "id": "doc011_q002",
+      "question": "What is the decimal value of the error code '0x2004' in the sercos Service Channel Error Codes table?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The decimal value of the error code '0x2004' is 8196. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x2004, Field=8196"
+      ],
+      "page_reference": "Page 205",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc011_q003",
+      "question": "What is the explanation for error code '0x3003' in the sercos Service Channel Error Codes table?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The explanation for error code '0x3003' is 'Attribute transmission too long'. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x3003, Field=12291, Field=Attribute transmission too long"
+      ],
+      "page_reference": "Page 205",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc011_q004",
+      "question": "What must be done to clear an error caused by exceeding a safely-limited speed threshold in special mode 'safe motion', and which command is used for this purpose?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "To clear the error, you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameterized in P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 or ... P\u20110\u20113290.16.2, SMO: Safely-limited speed 16 parameterized velocity threshold exceeded",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc011_q005",
+      "question": "In the special mode 'Safe motion' with active safety function 'Safety monitored oscillation', what must be done if the safely-reduced speed is exceeded for longer than the tolerance time period, and which command clears this error?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "If the safely-reduced speed (P-0-3290.x.8) is exceeded for longer than the tolerance time period (P-0-3290.x.7), you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In the special mode \"Safe motion\" (with active safety function \"Safety monitored oscillation\") the \"Safely-reduced speed\" (P-0-3290.x.8) was exceeded for longer than the tolerance time period (P-0-3290.x.7)",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc011_q006",
+      "question": "In special mode 'safe motion', when the velocity threshold parameterized in P-0-3290.x.2 is exceeded, which command must be executed to clear the error and re-enable the drive? What requirement ID references this behavior?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be executed to clear the error and re-enable the drive. This is referenced in [F7013 - Detailed diagnostics] on Page 121.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in P-0-3290.x.2 is exceeded",
+        "Afterwards start command 'S-0-0099, C0500 Reset class 1 diagnostics' in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hardest",
+      "question_type": "requirement_tracing"
+    },
+    {
+      "id": "doc012_q001",
+      "question": "What is the primary purpose of this documentation as described in the document?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions: Drive controller firmware versions MPx-02 to MPx-08 and Firmware versions of supply units of type 'HMV'. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions:"
+      ],
+      "page_reference": "Page 2",
+      "difficulty": "easy",
+      "question_type": "lookup"
+    },
+    {
+      "id": "doc012_q002",
+      "question": "What is the remedy for 'Master does not exchange any cyclic output data' in the EtherNet/IP communication table on Page 187?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "Check master status. (Page 187, Table: Cause=Master does not exchange any cyclic output data, Remedy=Check master status)",
+      "evidence_snippets": [
+        "Cause=Master does not exchange any cyclic output data, Remedy=Check master status"
+      ],
+      "page_reference": "Page 187",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc012_q003",
+      "question": "What is the remedy for 'Bus connection interrupted' in the DeviceNet communication table on Page 187?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "Check cable and interface. (Page 187, Table: Cause=Bus connection interrupted, Remedy=Check cable and interface)",
+      "evidence_snippets": [
+        "Cause=Bus connection interrupted, Remedy=Check cable and interface"
+      ],
+      "page_reference": "Page 187",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc012_q004",
+      "question": "What must be done if the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', and which command is used to clear the error?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "If the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameter setting. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameter\u2010ized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"",
+        "Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary."
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc012_q005",
+      "question": "What is the procedure for handling an exceeded position limit in 'P-0-3242, Safely-monitored position 1, negative' during special mode 'safe motion', and what command must be executed to clear the error?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "If the position limit parameterized in 'P-0-3242, Safely-monitored position 1, negative' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameterized position limit values. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\"",
+        "Check command value input and adjust it according to para\u2010\nmeterized position limit values"
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc012_q006",
+      "question": "In special mode 'safe motion', when a velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' or similar parameters is exceeded, what specific command must be executed to clear the error and re-enable the drive? Which requirement ID references this behavior?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and then set drive enable again. This is referenced in [Page 165] under the Cause and Remedy table for F7013 Safely-limited speed exceeded.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hardest",
+      "question_type": "requirement_tracing"
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+Financial Data Extraction & Comparison
+
+Entity Distinction & Funding Source
+
+Technical Parameter Retrieval
+
+List Filtering & Categorization
+
+Material Science Specifics
+
+Trace the data lifecycle for the 'Digital Twin of Indian traffic scenarios' project described in the R&D section. Specifically, what are the four distinct steps mentioned—starting from the sensor level—and which specific ADAS functionalities were covered in the representative scenarios generated?
+
+Refer to the 'Statement of Income and Expenditure' for the year ending March 31, 2025. Calculate the exact difference between the 'Surplus Before Tax' and the final 'Surplus Transferred to General Fund'. What specific line item accounts for this difference, and did this specific deduction increase or decrease compared to the previous financial year (2023-24)?
+
+Identify the 'Member Secretary' for the Finance & Internal Audit Committee (FIAC) and the 'Member Secretary' for the Project Evaluation & Monitoring Committee (PEMC). Are they the same person? Also, which of these two individuals holds the position of 'Senior Manager'?
+
+Based on the Balance Sheet as of March 31, 2025, identify the liability category that saw the largest percentage increase compared to the previous year: 'Long-Term Provisions' or 'Other Current Liabilities'? Provide the specific values for both years to justify the answer.
+
+Which Senior Deputy Director at ARAI also serves as a member of the 'Project Evaluation & Monitoring Committee' (PEMC)? Please list their full name.
+
+
+Compare the numerical listing of 'Bosch Ltd.' in the 'Governing Council' section versus the general 'Members' list. What are the specific list numbers assigned to Bosch Ltd. in these two respective sections?
+
+While 'Bosch Ltd.' is explicitly listed as a member of the Governing Council, does the report name a specific representative from Bosch Ltd. serving on the 'Finance & Internal Audit Committee' (FIAC)? If not, identify the 'General Manager - Finance & Accounting' listed in that committee and the specific company they represent.
+
+benz in a member of how many commities? with the serial number of listing. and what post does it hold in every commities?
+ANS- FIAC(general manager), members, governing council
+
+BMW is a member of a governing council, so is the BMW is include in any bigger posts like director/vice president/president.
+
+FIAC vs PEMC members and is there any common members?
+
+who is the president and the details about his position in related company and his statement?
+
+what automotive tech are introcued in this doc, how they applied and creating impact and who has the most contribution in the tech?
+
+in what catagory does the ARAI working on and what facilities they have introduced?
+
+in how many places president of ARAI got mentioned?
+
+the assets that ARAI is holding till 31 march 2025?
+
+What is the total value of 'Current Assets' for the year ending March 31, 2025? Compare this to the total 'Current Liabilities' for the same year. By what specific amount do current assets exceed current liabilities?
+
+Identify the specific value for 'Property, Plant and Equipment' as of March 31, 2025. Did this asset category increase or decrease compared to the previous year (March 31, 2024), and by how much?
+
+According to the 'Operational Highlights', what was the specific percentage growth in 'Operational Income' for the Financial Year 2024-25 compared to the previous year? Also, provide the exact numerical values (in Lakhs) for both years to justify this percentage.
+
+Refer to the 'Statement of Income and Expenditure'. How much did the 'Employee Benefits Expenses' increase in the year ending March 31, 2025, compared to the previous year? Calculate the absolute difference in Lakhs.
+
+Who audited the balance sheet, and what opinion did they express on its correctness?
+
+Did the auditors report any qualifications or adverse remarks related to the balance sheet?
+
+Under which Act or accounting framework was the balance sheet prepared?
+
+
+
+###################################
+
+
+Trace the data lifecycle for the 'Digital Twin of Indian traffic scenarios' project described in the R&D section. Specifically, what are the four distinct steps mentioned—starting from the sensor level—and which specific ADAS functionalities were covered in the representative scenarios generated?
+
+
+Refer to the 'Statement of Income and Expenditure' for the year ending March 31, 2025. Calculate the exact difference between the 'Surplus Before Tax' and the final 'Surplus Transferred to General Fund'. What specific line item accounts for this difference, and did this specific deduction increase or decrease compared to the previous financial year (2023-24)?
+
+Identify the 'Member Secretary' for the Finance & Internal Audit Committee (FIAC) and the 'Member Secretary' for the Project Evaluation & Monitoring Committee (PEMC). Are they the same person? Also, which of these two individuals holds the position of 'Senior Manager'?
+
+
+Based on the Balance Sheet as of March 31, 2025, identify the liability category that saw the largest percentage increase compared to the previous year: 'Long-Term Provisions' or 'Other Current Liabilities'? Provide the specific values for both years to justify the answer.
+
+
+Which Senior Deputy Director at ARAI also serves as a member of the 'Project Evaluation & Monitoring Committee' (PEMC)? Please list their full name.
+
+
+Compare the numerical listing of 'Bosch Ltd.' in the 'Governing Council' section versus the general 'Members' list. What are the specific list numbers assigned to Bosch Ltd. in these two respective sections?
+
+
+Compare the members of the Finance & Internal Audit Committee (FIAC) and the Project Evaluation & Monitoring Committee (PEMC). Are there any individuals who are members of both committees? If yes, list their names.
+
+
+Identify the specific value for 'Property, Plant and Equipment' as of March 31, 2025. Did this asset category increase or decrease compared to the previous year (March 31, 2024), and by how much?
+
+
+While 'Bosch Ltd.' is explicitly listed as a member of the Governing Council, does the report name a specific representative from Bosch Ltd. serving on the 'Finance & Internal Audit Committee' (FIAC)? If not, identify the 'General Manager - Finance & Accounting' listed in that committee and the specific company they represent.
+
+What is the total value of 'Current Assets' for the year ending March 31, 2025? Compare this to the total 'Current Liabilities' for the same year. By what specific amount do current assets exceed current liabilities?
+
+
+
+##########################################################################################
+
+
+1. Digital Twin data lifecycle:
+    Sensor data acquisition ? Pre-processing ? Annotation ? Synthetic scenario generation + vehicle dynamics integration.
+    ADAS covered: AEB, LKA, FCW.
+    
+    
+2. The exact difference between 'Surplus Before Tax' (Rs. 25,325.34 lakh) and 'Surplus Transferred to General Fund' (Rs. 25,294.45 lakh) for the year ending March 31, 2025, is Rs. 30.89 lakh. This difference is accounted for by the line item 'SIAT SURPLUS / (DEFICIT) TRANSFERRED TO GENERAL FUND'. This specific deduction decreased compared to the previous financial year (2023-24), where it was Rs. 260.57 lakh.
+
+
+3. FIAC: Mr. Atul Bhide (Deputy Director)
+
+    PEMC: Mr. Suyog Gadgil (Senior Manager)
+    ? Not the same person.
+    
+    
+4. Other Current Liabilities: Increased from Rs. 15,524.31 lakh (2024) to Rs. 17,663.17 lakh (2025), a percentage increase of approximately 13.78%.
+  
+  Long-Term Provisions: Increased from Rs. 2,613.73 lakh (2024) to Rs. 2,864.22 lakh (2025), a percentage increase of approximately 9.58%. 'Other Current Liabilities' saw the largest percentage increase
+  
+  
+5. Mr. Vijay Pankhawala. 
+
+
+6. Governing Council: #2
+
+    Members list: #14
+    
+    
+    
+7.   Dr. Reji Mathai
+
+
+8. 2025: ?79,024.28 lakh
+
+  2024: ?73,174.14 lakh
+  ? Increase of ?5,850.14 lakh.
+  
+  
+9. No.
+  FIAC lists Ms. Vandana Wadhwani, GM – Finance & Accounting, Mercedes-Benz India Pvt. Ltd
+  
+
+10. Current Assets: ?126,925.33 lakh
+
+  Current Liabilities: ?20,918.73 lakh
+  ? Assets exceed liabilities by ?106,006.60 lakh.
+  
+
+
+Digital Twin Project & ADAS Scenarios,Page 19
+Statement of Income & Expenditure / SIAT Surplus,Page 63
+FIAC & PEMC Committees / Member Secretaries,Page 8
+Balance Sheet / Liability Comparisons,Page 62
+Management Committee / Senior Deputy Directors,Page 63
+Governing Council List,Page 6
+General Members List,Page 7
+"Property, Plant and Equipment / Current Assets",Page 62

@@ -1,0 +1,1245 @@
+{
+  "dataset_info": {
+    "total_questions": 95,
+    "source_file": "/home/olj3kor/praveen/RAG_work/evaluation_questions_Qwen_72b.json"
+  },
+  "questions": [
+    {
+      "id": "doc001_q001",
+      "question": "What is the purpose of the ARTI API and at which level of the operating system is it intended to be used?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf",
+      "answer": "The purpose of the ARTI API is to provide a low-level interface for tracing tasks and processes with minimal impact on runtime behavior. It is intended to be used at the driver level of the operating system, as processes and tasks cannot be traced at application or middleware levels without influencing the runtime behavior.",
+      "evidence_snippets": [
+        "Itisataverylowleveltohavenoorminimalimpactontheruntimebehavior of the application. The recorded information is used to determine timing information of the software.",
+        "The API is intended to be used at driver level of the operating system. Processes and tasks cannot be traced at application level or middleware level because this would influence the runtime behavior of the system."
+      ],
+      "page_reference": "Pages 5-6",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc001_q002",
+      "question": "How does the ARTI interface manage task state transitions, and what specific hooks are used for these transitions?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf",
+      "answer": "The ARTI interface manages task state transitions through a series of hooks that correspond to different states. For instance, when a task enters the running state, the ArtiTaskSwitch hook is called. When a task enters the waiting state, the ArtiTaskWait hook is invoked. If a task changes from waiting to ready, the ArtiTaskRelease hook is used. The ArtiTaskPreempt hook is called when a task changes from running to ready, and the ArtiTaskExit hook is triggered when a task terminates.",
+      "evidence_snippets": [
+        "If ARTI is enabled then the OS/ARTI Adapter shall call ArtiTaskSwitch whenever an OS task enters the running state.",
+        "If ARTI is enabled then the OS/ARTI Adapter should call ArtiTaskWait whenever an OS task is entering waiting state.",
+        "If ARTI is enabled then the OS/ARTI Adapter should call ArtiTaskRelease whenever an OS task state changes from waiting to ready.",
+        "If ARTI is enabled then the OS/ARTI Adapter should call ArtiTaskPreempt whenever an OS task state changes from running to ready.",
+        "If ARTI is enabled then the OS/ARTI Adapter shall call ArtiTaskExit whenever an OS task terminates."
+      ],
+      "page_reference": "Pages 12-13",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc001_q003",
+      "question": "What parameters must be set when the OS/ARTI Adapter calls ArtiTaskInfo, and how do these parameters contribute to building the initial task list?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf",
+      "answer": "When the OS/ARTI Adapter calls ArtiTaskInfo, it must set the parameters callingContext, taskId, processId, and taskName. The parameter callingContext shall be set to the CallingContext which represents the current interrupt handling. The parameter taskId shall be set to the operating system specific task ID of the task. The parameter processId shall be set to the operating system specific process ID of the process that is the parent of the task. The parameter taskName shall be set to the operating system specific task name. These parameters provide information about the task and its parent process, which helps build up the initial task list.",
+      "evidence_snippets": [
+        "If ARTI is enabled then the OS/ARTI Adapter shall call ArtiTaskInfo for each existing task directly after calling ArtiInit or whenever tracing is started.",
+        "\u2022 The parameter callingContext shall be set to the CallingContext which represents the current interrupt handling.",
+        "\u2022 The parameter taskId shall be set to the operating system specific task ID of the task.",
+        "\u2022 The parameter processId shall be set to the operating system specific process ID of the process that is the parent of the task.",
+        "\u2022 The parameter taskName shall be set to the operating system specific task name."
+      ],
+      "page_reference": "Pages 14-15",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc002_q001",
+      "question": "What is the maximum number of transformers that can be connected in a chain, and what limitation causes this constraint?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The maximum number of transformers that can be connected in a chain is not explicitly stated, but it is implied that there is no specific limit other than practical considerations. However, the document mentions that the length of the data and the transformer's ability to handle more data than expected are factors. The limitation causing this constraint is the transformer's capacity to deal with unexpected or larger amounts of data.",
+      "evidence_snippets": [
+        "Atransformershallbeabletodeal withmoredatathanexpected (Page 14)",
+        "ATransformershallsupport concurrentexecution (Page 14)"
+      ],
+      "page_reference": "Pages 14-15",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc002_q002",
+      "question": "What is the maximum length of a transformer chain, and how does this configuration affect intra-ECU and inter-ECU communication?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The maximum length of a transformer chain is limited to 255 transformers. This configuration affects both intra-ECU and inter-ECU communication by transforming data according to the specified order in the System Template, with the receiving side executing the chain in reverse order.",
+      "evidence_snippets": [
+        "The maximum length of a transformer chain is limited to 255 transformers.",
+        "The order of transformers configured in the [3, System Template] represents the order on the sending side. The order on the receiving side is the inverse of the sending side."
+      ],
+      "page_reference": "Pages 15-16",
+      "difficulty": "medium",
+      "question_type": "cross-page"
+    },
+    {
+      "id": "doc002_q005",
+      "question": "What is the significance of the error code E_SAFETY_INVALID_SEQ (0x42) and how does it differ from E_SAFETY_INVALID_REP (0x41)?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "E_SAFETY_INVALID_SEQ (0x42) indicates that data are invalid due to a counter jump, meaning there was an unexpected change in the sequence of counters. In contrast, E_SAFETY_INVALID_REP (0x41) indicates that data are invalid because a repeated counter was received, suggesting a redundancy or duplication issue.",
+      "evidence_snippets": [
+        "E_SAFETY_INVALID_SEQ (0x42): data are invalid due to a counter jump, meaning there was an unexpected change in the sequence of counters.",
+        "E_SAFETY_INVALID_REP (0x41): data are invalid because a repeated counter was received, suggesting a redundancy or duplication issue."
+      ],
+      "page_reference": "Page 28",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc002_q009",
+      "question": "Based on the information provided, how does the function <Mip>_Inv_<transformerId> handle variable size arrays with arrayImplPolicy set to payloadAsPointerToArray, and what is the significance of this in the context of data transformation?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The transformer may need to update the outgoing parameters data_1, ..., data_n in response to the size and location of the payload once deserialized. This ensures that the transformed data correctly reflects the variable sizes and locations of the input arrays.",
+      "evidence_snippets": [
+        "If variable size arrays with arrayImplPolicy set to payloadAsPointerToArray are received as serialized data input, the transformer may need to update the outgoing parameters data_1, ..., data_n in response to the size and location of the payload once deserialised."
+      ],
+      "page_reference": "Page 44",
+      "difficulty": "medium",
+      "question_type": "causal"
+    },
+    {
+      "id": "doc002_q011",
+      "question": "How does the configuration parameter XfrmInstanceId in the EcucModuleDef for transformers differ from other parameters, and what is its purpose?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The XfrmInstanceId parameter in the EcucModuleDef for transformers is an EcucIntegerParamDef with a minimum value of 0 and a maximum value of 255. It has a lower multiplicity of 1 and an upper multiplicity of 1, meaning it must be defined exactly once. Its purpose is to provide a unique identifier for the transformer instance.",
+      "evidence_snippets": [
+        "XfrmInstanceId: EcucIntegerParamDef +parameter | min = 0 max = 255 lowerMultiplicity = 1 upperMultiplicity = 1"
+      ],
+      "page_reference": "Page 53",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc002_q014",
+      "question": "Which upstream requirements are not applicable to the General Specification of Transformers as listed in the C section, and what is the total number of these non-applicable requirements?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The non-applicable upstream requirements for the General Specification of Transformers include SRS_BSW_00168, SRS_BSW_00170, SRS_BSW_00369, SRS_BSW_00375, SRS_BSW_00383, SRS_BSW_00384, SRS_BSW_00386, SRS_BSW_00388, SRS_BSW_00389, SRS_BSW_00390, SRS_BSW_00392, SRS_BSW_00393, SRS_BSW_00395, SRS_BSW_00403, SRS_BSW_00416, SRS_BSW_00417, SRS_BSW_00419, SRS_BSW_00422, SRS_BSW_00425, SRS_BSW_00432, SRS_BSW_00461, SRS_BSW_00471, SRS_BSW_00472, SRS_BSW_00478, SRS_BSW_00490, and SRS_BSW_00491. The total number of these non-applicable requirements is 26.",
+      "evidence_snippets": [
+        "Upstreamrequirements: SRS_BSW_00168, SRS_BSW_00170, SRS_BSW_00369, SRS_BSW_00375, SRS_BSW_00383, SRS_BSW_00384, SRS_BSW_00386, SRS_BSW_00388, SRS_BSW_00389, SRS_BSW_00390, SRS_BSW_00392, SRS_BSW_00393, SRS_BSW_00395, SRS_BSW_00403, SRS_BSW_00416, SRS_BSW_00417, SRS_BSW_00419, SRS_BSW_00422, SRS_BSW_00425, SRS_BSW_00432, SRS_BSW_00461, SRS_BSW_00471, SRS_BSW_00472, SRS_BSW_00478, SRS_BSW_00490,SRS_BSW_00491",
+        "These requirements are not applicable to this specification."
+      ],
+      "page_reference": "Page 86",
+      "difficulty": "medium",
+      "question_type": "list|numerical"
+    },
+    {
+      "id": "doc002_q003",
+      "question": "Based on the general specifications for transformers, what specific actions should a transformer take when it encounters unexpected data, and how is this behavior configured?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "A transformer shall discard unexpected data but tolerate the expected fraction. This behavior can be configured in the PortInterfaceMapping, allowing for scenarios where a sender sends more data than the client receives.",
+      "evidence_snippets": [
+        "The way to deal with unexpected data shall be specified by the transformer specific SWS. In general the transformer shall discard the unexpected data but shall tolerate the expected fraction.",
+        "This also includes the configurability of the PortInterfaceMapping where it can be configured that a sender sends more data than the client receives."
+      ],
+      "page_reference": "Pages 18-19",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc002_q004",
+      "question": "Based on the error handling mechanism described, what would be the outcome if a safety transformer detects valid data with a repeated counter and then a serializer transformer encounters a malformed message?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "If a safety transformer detects valid data with a repeated counter, it will return a soft error (E_SAFETY_VALID_REP). If a subsequent serializer transformer then encounters a malformed message, it will return a hard error (E_SER_MALFORMED_MESSAGE). The RTE would abort the execution of the transformer chain due to the hard error, and the output buffer from the safety transformer would remain unchanged.",
+      "evidence_snippets": [
+        "If a transformer returns a hard error, it shall leave the output buffer unchanged.",
+        "E_SAFETY_VALID_REP: The data are valid according to safety, although data with a repeated counter were received.",
+        "E_SER_MALFORMED_MESSAGE: Thereceivedmessageismalformed. Thetransformerisnot abletoproduceanoutput."
+      ],
+      "page_reference": "Pages 25-27",
+      "difficulty": "hard",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc002_q006",
+      "question": "Based on the information provided, what is the role of the `csTransactionHandle` parameter in the function `<Mip>_<transformerId>` and under what conditions does it appear?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "The `csTransactionHandle` parameter in the function `<Mip>_<transformerId>` is an optional pointer to the transaction handle for the C/S method call. It is used to tunnel relevant information from the request to the response at the server side via the RTE. This argument only exists if the corresponding XfrmImplementationMapping has a `XfrmCSTransactionHandleImplementationDataTypeRef` which references an Implementation DataType.",
+      "evidence_snippets": [
+        "Optional pointertothetransactionhandlefortheC/Smethodcall. -Usedtotunneltherelevantinformationfromtherequesttothe responseattheserversideviatheRTE.",
+        "Thisargumentonly existsifthecorrespondingXfrmImplementationMappinghasa XfrmCSTransactionHandleImplementationDataTypeRefwhich referencesanImplementationDataType."
+      ],
+      "page_reference": "Page 36",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc002_q007",
+      "question": "Given the conditions specified in [SWS_Xfrm_00100] and the function definition in [SWS_Xfrm_00102], what would be the behavior of the transformer if a hard error (0x80-0xFF) is encountered during Client/Server communication?",
+      "source_document": "General Specification of Transformers.pdf",
+      "answer": "If a hard error (0x80-0xFF) is encountered, the implementation specified in [SWS_Xfrm_00100] would ignore the values of the ClientServerOperation\u2019s arguments data_1, ..., data_n as they are not filled with meaningful values. The transformer function <Mip>_<transformerId> defined in [SWS_Xfrm_00102] would return a specific error code (0x80-0xFF) and not process the input arguments.",
+      "evidence_snippets": [
+        "If the value of the returnValue parameter is inside the range of hard errors (0x80-0xFF), the implementation of [SWS_Xfrm_00038] shall ignore the values of the ClientServerOperation\u2019s arguments data_1, ..., data_n as they are not filled with meaningful values.",
+        "This function is the interface of the first transformer in a transformer chain of external trigger events. The length of the transformed data shall be calculated by the transformer during runtime and returned in the OUT parameter bufferLength."
+      ],
+      "page_reference": "Pages 37-39",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc003_q001",
+      "question": "What significant change was made to the document in the R22-11 release, and how does it relate to security?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "In the R22-11 release, a bugfix was done to ensure secure counter removal. This change is related to enhancing the security of cryptographic operations by ensuring that counters used in cryptographic algorithms are properly managed.",
+      "evidence_snippets": [
+        "a bugfix was done to ensure secure counter removal"
+      ],
+      "page_reference": "Page 1",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc003_q002",
+      "question": "Define the term 'CryptoPrimitive' and explain its relationship with a CryptoDriverObject.",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "A CryptoPrimitive is an instance of a configured cryptographic algorithm realized in a CryptoDriverObject. A CryptoDriver can implement one or more CryptoDriverObjects, each offering different cryptographic primitives, which can be performed independently in hardware or software.",
+      "evidence_snippets": [
+        "A CryptoPrimitive is an instance of a configured cryptographic algorithm realized in a CryptoDriverObject.",
+        "TheCryptoDriverObject can offer different cryptoprimitives in hardware or software."
+      ],
+      "page_reference": "Page 6",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc003_q003",
+      "question": "List the input documents and related standards and norms that are referenced for the utilization of crypto services.",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The input documents and related standards and norms referenced for the utilization of crypto services include: Specification of Crypto Service Manager (AUTOSAR_CP_SWS_CryptoServiceManager), Specification of Crypto Interface (AUTOSAR_CP_SWS_CryptoInterface), Specification of Crypto Driver (AUTOSAR_CP_SWS_CryptoDriver), and Layered Software Architecture (AUTOSAR_CP_EXP_LayeredSoftwareArchitecture).",
+      "evidence_snippets": [
+        "[1] Specification of Crypto Service Manager",
+        "[2] Specification of Crypto Interface",
+        "[3] Specification of Crypto Driver",
+        "[4] Layered Software Architecture"
+      ],
+      "page_reference": "Page 7",
+      "difficulty": "easy",
+      "question_type": "list"
+    },
+    {
+      "id": "doc003_q004",
+      "question": "What is the primary role of the Crypto Service Manager (CSM) in the AUTOSAR crypto stack, and how does it manage concurrent access to cryptographic services?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The primary role of the Crypto Service Manager (CSM) is to control the concurrent access of one or more clients to one or more synchronous/asynchronous cryptographic services. It manages jobs that cannot be directly processed by the dedicated CRYPTO using prioritized queues.",
+      "evidence_snippets": [
+        "The CSM [1] controls the concurrent access of one or more clients to one or more synchronous/asynchronous cryptographic services.",
+        "TheCSMmayhaveseveralqueueswhereasynchronousjobsareprocessedaccordingto their priority."
+      ],
+      "page_reference": "Pages 9-11",
+      "difficulty": "medium",
+      "question_type": "definition|multi-hop"
+    },
+    {
+      "id": "doc003_q005",
+      "question": "How does the Crypto Interface (CRYIF) facilitate communication between the CSM and the Crypto Driver (CRYPTO), and what is its role in handling asynchronous requests?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The Crypto Interface (CRYIF) provides a generic interface for the CSM to access available Crypto Driver modules, making the access independent of the underlying Crypto Drivers. It forwards asynchronous requests from the CSM to the appropriate CRYPTO module and uses callback notifications to inform about the outcome.",
+      "evidence_snippets": [
+        "It receives requests from the CSM and maps them to the appropriate cryptographic operation in the CRYPTO.",
+        "Callback notifications inform about the outcome in case the request was asynchronous."
+      ],
+      "page_reference": "Pages 9-11",
+      "difficulty": "medium",
+      "question_type": "definition|multi-hop"
+    },
+    {
+      "id": "doc003_q006",
+      "question": "What is the difference between the streaming approach and the single call approach for processing crypto services, and when is each approach more beneficial?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The streaming approach performs single operations separately on given data, allowing the processing of very large input data by calling the service function with operation mode 'UPDATE' multiple times. The single call approach combines several job operations into one function invocation, reducing overhead and increasing performance for small sets of data.",
+      "evidence_snippets": [
+        "The streaming approach performs single operations separately on a given data.",
+        "In order to increase performance of the crypto services, the single call approach combines several job operations into one single function invocation."
+      ],
+      "page_reference": "Page 12",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc003_q007",
+      "question": "What is the primary difference in key storage between hardware (HW) and software (SW) cryptographic implementations as described in the document?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The primary difference is that HW CRYPTO implementations typically use key slots, while SW CRYPTO uses NvM for managing key storage.",
+      "evidence_snippets": [
+        "A HW CRYPTO implementation will typically use key slots.",
+        "Whereas a SW CRYPTO will use the NvM for managing the key storage."
+      ],
+      "page_reference": "Page 13",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc003_q008",
+      "question": "How does the configuration process of the crypto stack start, and what are the main steps involved in configuring the cryptographic primitives and keys?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The configuration process starts from the CSM and moves down to CRYIF and then to CRYPTO. In CSM, the user selects and configures cryptographic primitives and keys provided by CRYIF and CRYPTO, defines jobs and job queues. In CRYIF, the user maps the features requested by CSM onto the provided features of registered CRYPTO modules. In CRYPTO, the user adapts and extends the pre-configuration of cryptographic primitives and keys.",
+      "evidence_snippets": [
+        "The configuration of the crypto stack is typically carried out using the top-down approach, starting from the CSM over CRYIF to CRYPTO.",
+        "In CSM, the user selects and configures the cryptographic primitives and keys to be used that are provided by CRYIF and CRYPTO.",
+        "In CRYIF, the user mainly defines the mapping of the features requested by the CSM onto the provided features of the registered CRYPTO modules.",
+        "In CRYPTO, the user adapts and extends the pre-configuration of the cryptographic primitives and keys."
+      ],
+      "page_reference": "Pages 13-14",
+      "difficulty": "hard",
+      "question_type": "cross-page"
+    },
+    {
+      "id": "doc003_q009",
+      "question": "What specific key element is required for the Message Authentication Code (MAC) service to function correctly?",
+      "source_document": "Utilization of Crypto Services.pdf",
+      "answer": "The MAC service requires a key that at least references a key element 'Key Material' (CRYPTO_KE_MAC_KEY).",
+      "evidence_snippets": [
+        "MAC requires a key that at least references a key element 'Key Material' (CRYPTO_KE_MAC_KEY)."
+      ],
+      "page_reference": "Page 14",
+      "difficulty": "easy",
+      "question_type": "single-hop"
+    },
+    {
+      "id": "doc004_q001",
+      "question": "What is the role of the Operating System Interface (OSI) in the AUTOSAR Adaptive Platform, and which entity or entities does it serve?",
+      "source_document": "Requirements on Operating System Interface.pdf",
+      "answer": "The Operating System Interface (OSI) is a functional cluster within the AUTOSAR Adaptive Platform that specifies the operating system interface used by adaptive applications and by the AUTOSAR Adaptive Platform itself.",
+      "evidence_snippets": [
+        "TheFunctional ClusterwithintheAUTOSAR Adaptive Platformwhich specifiestheOperating SysteminterfaceusedbyAdaptive ApplicationsandbytheAUTOSAR Adaptive Platformitself."
+      ],
+      "page_reference": "Page 8",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc004_q002",
+      "question": "Based on the document, what changes were made to requirements in the AUTOSAR AP R23-11 release, and which specific requirements were added or modified?",
+      "source_document": "Requirements on Operating System Interface.pdf",
+      "answer": "In the AUTOSAR AP R23-11 release, the requirements [RS_OSI_00204], [RS_OSI_00208], and [RS_OSI_00209] were described but not considered in this release. These functionalities are subject to modification and will be considered for inclusion in a future release.",
+      "evidence_snippets": [
+        "The following requirements are described within this document but not otherwise con-sidered in this release:",
+        "\u2022 [RS_OSI_00204]",
+        "\u2022 [RS_OSI_00208]",
+        "\u2022 [RS_OSI_00209]"
+      ],
+      "page_reference": "Page 7",
+      "difficulty": "hard",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc004_q003",
+      "question": "What is the primary function of the Operating System Interface (OSI) within the AUTOSAR Adaptive Platform, and how does it support the Execution Management Functional Cluster?",
+      "source_document": "Requirements on Operating System Interface.pdf",
+      "answer": "The primary function of the Operating System Interface (OSI) is to specify the interface used by Adaptive Applications and the AUTOSAR Adaptive Platform itself for managing processes. It supports the Execution Management Functional Cluster by providing mechanisms necessary for platform initialization and the start-up/shut-down of applications.",
+      "evidence_snippets": [
+        "TheFunctional ClusterwithintheAUTOSAR Adaptive Platformwhich specifiestheOperating SysteminterfaceusedbyAdaptive ApplicationsandbytheAUTOSAR Adaptive Platformitself.",
+        "Execution Managementisresponsibleforstartupandshutdownofall ProcessesoftheAUTOSAR Adaptive Platform."
+      ],
+      "page_reference": "Pages 8-9",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc004_q004",
+      "question": "Explain the rationale behind requiring POSIX PSE51 compliance for the Operating System provided to Adaptive Application Processes and provide an example of a use case it supports.",
+      "source_document": "Requirements on Operating System Interface.pdf",
+      "answer": "The rationale behind requiring POSIX PSE51 compliance is that it offers functions for basic synchronized I/O, high-resolution timers, signals, semaphores, shared memory, and threads. This profile is sufficient for Adaptive Applications as they do not need to fork new processes or have extensive file access. An example use case supported by this requirement is application portability.",
+      "evidence_snippets": [
+        "PSE51offersfunctionsforbasicsynchronizedI/O,high-resolutiontimer, signals,semaphores,sharedmemoryandthreads. Astheenvisioned Adaptive Applicationsoftwarecomponentswillnotrequiretoforknew Processesthemselves,andonlyneedlimiteddirectaccesstofiles.",
+        "UseCase: Applicationportability."
+      ],
+      "page_reference": "Page 10",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc005_q001",
+      "question": "What are the transport protocols that can be used for Raw Data Streams over Ethernet using IP based protocols, and how do they differ in terms of reliability?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "Raw Data Streams over Ethernet using IP based protocols can use TCP/IP sockets as the transport layer. Both TCP and UDP can be used as transport protocols. TCP is a reliable stream-oriented protocol, making it the natural choice for Raw Data Streams since it ensures data integrity and order. In contrast, UDP is an unreliable connectionless protocol that does not guarantee delivery or order of packets, but it may be acceptable when the application can tolerate some packet loss.",
+      "evidence_snippets": [
+        "Raw Data Streams using IP based protocols use TCP/IP sockets as transport layer.",
+        "Both unicast and multicast socket connections shall be supported. The TCP/IP sockets can use both TCP or UDP as transport protocol. TCP is the natural choice for Raw Data Streams using IP protocol, since it is a reliable stream oriented protocol. However, UDP shall also be supported when an unreliable connection is acceptable for the application."
+      ],
+      "page_reference": "Page 12",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc005_q006",
+      "question": "What security protocols are supported for securing Raw Data Stream communication, and how do they differ in their application based on the transport protocol used?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The supported security protocols for securing Raw Data Stream communication include TLS 1.2, DTLS 1.2, and IPSec. TLS is used for secure TCP connections, while DTLS is used for UDP. IPSec can be applied to both TCP and UDP communications by creating a secure channel according to the specified requirements.",
+      "evidence_snippets": [
+        "\u2022 TLS 1.2 (see [RFC5246]) \u2022 DTLS 1.2 (see [RFC6347]) \u2022 IPSec",
+        "A TLS secure channel shall be created and used if a TlsSecureComProps instance is part of a EthernetRawDataStreamMapping and is configured for transmission over \u201ctcp\u201d by assigning a localTcpPort in the EthernetRawDataStreamMapping.",
+        "A DTLS secure channel shall be created and used if: \u2022 a TlsSecureComProps instance is part of a EthernetRawDataStreamMapping and is configured for transmission over \u201cudp\u201d by assigning a localUdpPort in the EthernetRawDataStreamMapping."
+      ],
+      "page_reference": "Pages 31-32",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc005_q002",
+      "question": "How does the media clock consumer use the information received in an IEEE1722 stream to synchronize its local clock, and what is the role of the CRF subtype in this process?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The media clock consumer performs a recovery of its local media clock (e.g., using a PLL) based on the encapsulated data from the media clock provider. The IEEE1722 stream of subtype CRF (clock reference format) contains several presentation timestamps that correlate to the media clock rate, which helps in synchronizing the consumer's clock with the provider's.",
+      "evidence_snippets": [
+        "A 'media clock consumer' is an end node in the network which receive a IEEE1722 stream of subtype CRF (clock reference format) from a media clock provider. The media clock consumer perform a recovery of its media clock (e.g. PLL) based on the received encapsulated data from the media clock provider.",
+        "The IEEE1722 stream is of subtype CRF (clock reference format) and contain several presentation timestamps which correlates to the media clock rate."
+      ],
+      "page_reference": "Pages 15-16",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc005_q003",
+      "question": "What is the requirement for handling raw data streams without datatype information, and how does it relate to the Communication Management's responsibilities?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The Communication Management must provide an API to support reading and writing raw data streams that have no datatype information. This requirement ensures that the system can handle untyped data efficiently.",
+      "evidence_snippets": [
+        "TheCommunicationManagement shallprovideanAPItosupport readingandwritingrawdatastreams thathasnodatatypeinformation",
+        "[SWS_RDS_10476][SWS_RDS_10477] [SWS_RDS_10478][SWS_RDS_10479] [SWS_RDS_10480][SWS_RDS_10481]"
+      ],
+      "page_reference": "Pages 22-23",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc005_q005",
+      "question": "What mechanisms can be used to achieve secure communication in the Raw Data Streaming Interface, and where are these security functions configured?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "Secure communication in the Raw Data Streaming Interface can be achieved by applying TLS or IPSec protocols in the middleware. Additionally, access control imposed by the IAM can be applied for Raw Data Streams. All these security functions (TLS, IPSec, IAM) are configurable in the deployment and mapping model of the Raw Data Streaming Interface, as described in TPS_ManifestSpecification [8].",
+      "evidence_snippets": [
+        "Secure communication can be achieved by applying TLS or IPSec protocols in the middleware. Also access control imposed by the IAM can be applied for Raw Data Streams.",
+        "All security functions (TLS, IPSec, IAM) are configurable in the deployment and mapping model of Raw Data Streaming Interface, see TPS_ManifestSpecification [8]."
+      ],
+      "page_reference": "Page 26-27",
+      "difficulty": "medium",
+      "question_type": "multi-hop|definition"
+    },
+    {
+      "id": "doc005_q009",
+      "question": "What specific actions are taken by the destructor of an IEEE1722RawDataStreamConsumer or IEEE1722RawDataStreamProducer instance if a local communication connection is still active?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The destructor performs a Shutdown operation internally before the object is destroyed, ensuring that the local communication connection to the data link layer is disconnected.",
+      "evidence_snippets": [
+        "If the destructor either of an IEEE1722RawDataStreamConsumer or IEEE1722RawDataStreamProducer instance is executed where the local communication connection to the data link layer is still connected, then the destructor shall perform a Shutdown operation internally before the object is destroyed."
+      ],
+      "page_reference": "Page 45",
+      "difficulty": "medium",
+      "question_type": "single-hop"
+    },
+    {
+      "id": "doc005_q012",
+      "question": "What specific actions should be taken by the WriteData operation of an IEEE1722RawDataStreamProducer instance if it is interrupted by the system during data processing?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The WriteData operation should reset all internal states, release internal resources, and return with kInterruptedBySignal.",
+      "evidence_snippets": [
+        "If ReadData operation of am IEEE1722RawDataStreamConsumer instance or the WriteData operation of an IEEE1722RawDataStreamProducer instance is processed and the operation is interrupted by the system, then the operation shall reset all internal states, release internal resources and return with kInterruptedBySignal."
+      ],
+      "page_reference": "Page 62",
+      "difficulty": "easy",
+      "question_type": "single-hop"
+    },
+    {
+      "id": "doc005_q014",
+      "question": "What is the purpose of the move constructor for the RawDataStreamClient class, and how does it differ from the copy constructor?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The move constructor for the RawDataStreamClient class is used to transfer ownership of resources from one object to another efficiently. It differs from the copy constructor, which is not allowed (deleted), as the copy constructor would create a new object with a duplicate state.",
+      "evidence_snippets": [
+        "MoveconstructoroftheRawDataStreamClient.",
+        "CopyconstructoroftheRawDataStreamClient-notallowed."
+      ],
+      "page_reference": "Pages 68-69",
+      "difficulty": "medium",
+      "question_type": "causal"
+    },
+    {
+      "id": "doc005_q004",
+      "question": "What specific requirement does the Communication Management need to fulfill in order to support Raw Data Streams, and how does it relate to the underlying network protocol?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "The Communication Management needs to provide TCP/IP Sockets as the network protocol for Raw Data Streams. This requirement ensures that application developers can send and receive raw binary data streams independent of the underlying network protocol.",
+      "evidence_snippets": [
+        "TheCommunicationManagement shallprovideTCP/IPSocketsas networkprotocolforRawData Streams (Page 23)",
+        "Applicationdevelopersshallbeable tosendandreceiverawbinarydata streamsindependentofthe underlyingnetworkprotocol (Page 23)"
+      ],
+      "page_reference": "Pages 23-24",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc005_q007",
+      "question": "How does the RawDataStreamClient handle data reading in a multicast scenario, and what is the significance of using zero-copy semantics in this context?",
+      "source_document": "Specification of Raw Data Stream.pdf",
+      "answer": "In a multicast scenario, if Multicast Credentials are defined for the client, the RawDataStreamClient::ReadData() function reads data from the multicast socket created in the constructor. The use of zero-copy semantics with std::unique_ptr means that ownership of the allocated memory of the read data is transferred to the application, which enhances efficiency by avoiding unnecessary data copying.",
+      "evidence_snippets": [
+        "If Multicast Credentials are defined for the client, the data shall be read from the multicast socket created in the constructor (for 1:N use cases)",
+        "For efficiency, the zero-copy semantics of std::unique_ptr is used, which means that the ownership of the allocated memory of the read data is transferred to the application in the Read DataResult.data value."
+      ],
+      "page_reference": "Pages 34-35",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q001",
+      "question": "What is the primary function of the FC Firewall in the context of the Adaptive Platform, and how does it adapt to different vehicle contexts during runtime?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The primary function of the FC Firewall is to manage and configure the host-based firewall on the ECU where the Adaptive Platform is deployed. It configures the underlying Firewall engine according to the Firewall Rule configuration deployed with the manifests. Additionally, the FC Firewall offers interfaces to adapt the Firewall rule configuration during runtime, allowing it to adjust for different vehicle contexts or support Intrusion Prevention Systems.",
+      "evidence_snippets": [
+        "TheFC Firewallmanagesandconfiguresthehost-basedfirewallontheECUwhere the Adaptive Platform is deployed on.",
+        "Additionally, the FC Firewall offers interfaces to adapt the Firewall rule configuration during runtime, e.g. to adapt for different vehicle contexts or to support Intrusion Prevention Systems."
+      ],
+      "page_reference": "Page 6",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q002",
+      "question": "How does the FC Firewall use the EventReporter interface, and what is its significance in terms of security events?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The FC Firewall uses the EventReporter interface to report standardized security events. This interface allows the Firewall to communicate with the Intrusion Detection System Manager, which is crucial for maintaining security by reporting any potential threats or anomalies detected.",
+      "evidence_snippets": [
+        "TheFirewallusesthisinterfacetoreportstandardizedsecurityevents.",
+        "The goal is to provide a clear understanding of Functional Cluster boundaries and interaction, without specifying syntactical details."
+      ],
+      "page_reference": "Pages 7, 12",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q009",
+      "question": "What specific header file should be generated for each modeled FirewallStateSwitchInterface, and what is the purpose of the multiple inclusion guard?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "For each modeled FirewallStateSwitchInterface, a header file shall be generated according to the directory and path/filename convention `ara/fw/states/{<fwssi-sn>}.h`. The purpose of the multiple inclusion guard is to prevent the header file from being included more than once in a single compilation, as per [SWS_CORE_90002].",
+      "evidence_snippets": [
+        "For each modeled FirewallStateSwitchInterface a header file shall be generated according to this directory and path/filename convention - a multiple inclusion guard shall be placed around the whole header file as per [SWS_CORE_90002]."
+      ],
+      "page_reference": "Page 45",
+      "difficulty": "medium",
+      "question_type": "single-hop"
+    },
+    {
+      "id": "doc006_q010",
+      "question": "How does the `ThrowAsException` function in the `ara::fw::FwErrorDomain` class handle exceptions, and what is its thread safety property?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The `ThrowAsException` function creates a new instance of `ara::fw::FwException` from an error code and throws it. This function is not exception-safe but is thread-safe.",
+      "evidence_snippets": [
+        "void ThrowAsException (const ara::core::ErrorCode &errorCode) const noexcept(false) override;",
+        "Createsanewinstanceofara::fw::FwExceptionfromerrorCodeandthrowsit.",
+        "ExceptionSafety: notexceptionsafe",
+        "ThreadSafety: thread-safe"
+      ],
+      "page_reference": "Pages 54-57",
+      "difficulty": "medium",
+      "question_type": "definition|causal"
+    },
+    {
+      "id": "doc006_q011",
+      "question": "What is the rationale behind not implementing the feature of Firewall filter rule (de-)activation during runtime as specified in requirement FO_RS_Fw_00009?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The document does not provide a specific rationale for not implementing the feature of Firewall filter rule (de-)activation during runtime, as mentioned in requirement FO_RS_Fw_00009.",
+      "evidence_snippets": [
+        "FO_RS_Fw_00009: Thisdocumentdoesnotprovidespecificationforthefeature of Firewall filter rule (de-)activation during runtime."
+      ],
+      "page_reference": "Page 70",
+      "difficulty": "easy",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc006_q003",
+      "question": "How does the FC Firewall manage network packet patterns and what happens in case of a pattern match or no-match scenario?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The FC Firewall manages a list of expected network packet patterns, where each pattern is associated with a respective action (e.g., allow or block the network packet). For every network packet that passes the network stack (ingress and egress), the firewall compares the network packet against the list of patterns. In case of a pattern match, the firewall carries out the action associated with the pattern. If no pattern matches (no-match case), the firewall carries out a default action.",
+      "evidence_snippets": [
+        "The FC Firewall manages a list of expected network packet patterns, where each pattern is associated with a respective action (e.g. allow or block the network packet).",
+        "For every network packet that passes the network stack (ingress and egress), the firewall compares the network packet against the list of patterns. In case of a pattern match, the firewall carries out the action associated with the pattern. If no pattern matches (no-match case), the firewall carries out a default action."
+      ],
+      "page_reference": "Page 15",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q004",
+      "question": "How does the firewall handle stateful packet inspection for TCP, and what specific checks are performed to manage open connections and state transitions?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The firewall performs stateful packet inspection for TCP by storing the time of the latest network packet for each communication peer and checking if the time between packets is within a specified timeout. It also limits the number of open TCP connections based on a set parameter, and verifies that any new network packet requesting to perform a TCP state transition adheres to allowed transitions according to RFC 793.",
+      "evidence_snippets": [
+        "If the parameter TcpRule.timeoutCheck is set, the firewall shall store the time of the latest network packet for the respective communication peer. If the time between the latest and current network packet is smaller than the value of TcpRule.timeoutCheck, the TcpRule is considered a match.",
+        "If the parameter TcpRule.numberOfParallelTcpSessions is set, the firewall shall keep track of the number of open TCP connections. If a network packet wants to open a new TCP session and the number of open TCP sessions including the newly opened TCP session is smaller than TcpRule.numberOfParallelTcpSessions, the TcpRule is considered a match.",
+        "If the parameter TcpRule.stateManagementBasedOnTcpFlags is set to true, the firewall shall check whether the network packet wants to perform an allowed TCP state transition according to RFC 793. If this state transition is allowed, the TcpRule is considered a match."
+      ],
+      "page_reference": "Pages 20-21",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q005",
+      "question": "How does the FC Firewall handle network packets containing multiple SOME/IP messages, and what specific actions must be taken to ensure each message is validated according to the firewall rules?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The FC Firewall handles network packets containing multiple SOME/IP messages by finding a subset of FirewallRules where the respective DataLinkLayerRule, NetworkLayerRule, and TransportLayerRule have provided a match and a SomeipProtocolRule is aggregated. It then compares the expected values against the SOME/IP header fields of each SOME/IP message in the packet. If all values match and if for all FirewallRules the FirewallRuleProps.action from the referenced FirewallRuleProps is the same, the respective FirewallRules are considered to be matches.",
+      "evidence_snippets": [
+        "If the network packet to be inspected contains one or multiple SOME/IP messages, the FC Firewall shall find the subset of FirewallRules, where the respective DataLinkLayerRule, NetworkLayerRule and TransportLayerRule have provided a match and a SomeipProtocolRule is aggregated.",
+        "For this subset, the FC Firewall shall compare their expected values against the SOME/IP header fields of the SOME/IP messages in the network packet. If all val-ues match and if for all FirewallRules the FirewallRuleProps.action from the referenced FirewallRuleProps is the same, the respective FirewallRules are considered to be matches."
+      ],
+      "page_reference": "Pages 22-23",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q006",
+      "question": "How does the FC Firewall determine which StateDependentFirewall to activate when no ModeDeclaration has been reported, and what is the process for switching to a different StateDependentFirewall during runtime?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "When no ModeDeclaration has been reported to the FC Firewall, it considers the StateDependentFirewall as active where the referenced ModeDeclaration is referenced as initialMode by the ModeDeclarationGroup. To switch to a different StateDependentFirewall during runtime, a process must use the ara::fw::FirewallStateSwitchInterface::SwitchFirewallState API, provided that an AdaptiveFirewallToPortPrototypeMapping exists linking the requesting process and the RPortPrototype.",
+      "evidence_snippets": [
+        "If no ModeDeclaration has been reported to the FC Firewall, the FC Firewall shall consider the StateDependentFirewall as active where the referenced ModeDeclaration is referenced as initialMode by the ModeDeclarationGroup.",
+        "The FC Firewall provides the ara::fw::FirewallStateSwitchInterface API to switch the currently active StateDependentFirewall."
+      ],
+      "page_reference": "Pages 27-28",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc006_q007",
+      "question": "How does the FC Firewall ensure that information loss is minimized when SEvs with the same ID are aggregated by the IdsM, and what specific set of SEvs does it specify for this purpose?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf",
+      "answer": "The FC Firewall ensures minimal information loss by specifying fine-grained SEvs that focus on individual protocols inspected by the firewall. This includes SEVs such as SEV_FW_PACKET_BLOCKED_IPV4_MISMATCH, SEV_FW_PACKET_BLOCKED_TCP_MISMATCH, and others for different layers and protocols.",
+      "evidence_snippets": [
+        "This behaviour can cause information loss and needs to be reflected when designing the SEvs raised by the FC Firewall - the SEvs need to be fine-grained, focusing on individual protocols inspected by the firewall.",
+        "SEVName: SEV_FW_PACKET_BLOCKED_IPV4_MISMATCH, ID: 51, Description: A network packet was blocked due to a rule mismatch in IPv4 layer."
+      ],
+      "page_reference": "Pages 31-33",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc007_q001",
+      "question": "What significant changes were introduced in the R25-11 release of the Layered Software Architecture document, and how do they compare to the changes made in the R24-11 release?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "In the R25-11 release, significant changes included adding information about VDP and Mirror Management, updating slides about libraries and DDS, removing TTCan, Fls, Eep, and LdCom, and making minor changes. In comparison, the R24-11 release introduced the L-SDU Router, incorporated J1939Fscp transformer into comm stack extensions, partitioning examples, migration of BSWModuleList to BSWGeneral, added I2C in Comm Drivers, improved error handling documentation, cleaned up remains of partition restart, and made changes to the memory manipulation library.",
+      "evidence_snippets": [
+        "2025-11-27 R25-11 AUTOSAR \u27a2 Added informationabout VDP \u27a2 Added informationabout Mirror \u27a2 Updated slides about libraries, DDS \u27a2 RemovedTTCan \u27a2 Removed Fls and Eep \u27a2 Removed LdCom \u27a2 Minor changes",
+        "2024-11-27 R24-11 AUTOSAR \u27a2 Added L-SDU Router \u27a2 Incorporated J1939Fscp transformer into comm stack extensions \u27a2 Incorporated Partitioning examples \u27a2 Incorporated migration of BSWModuleList to BSWGeneral \u27a2 Added I2C in Comm Drivers \u27a2 Improve documentation about error handling and usage \u27a2 Cleanup remains of partition restart \u27a2 Added changes in memory manipulation library: Copy, Set, Move, Compare \u27a2 Remove E2EPW support \u27a2 Added changes to error handling"
+      ],
+      "page_reference": "Pages 2-3",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc007_q002",
+      "question": "What new concepts were introduced in AUTOSAR Release 4.2.1, and how did they impact the system's security capabilities?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "In AUTOSAR Release 4.2.1, new concepts such as Switch Configuration, Sender-Receiver-Serialization, CAN-FD, Large-Data-COM, E2E-Extension, Global Time Synchronization, Support for Post-build ECU-Configuration, Secure-Onboard-Communication, and ASIL/QM-Protection were introduced. These enhancements particularly bolstered the system's security capabilities by adding secure onboard communication and ASIL/QM protection.",
+      "evidence_snippets": [
+        "\u27a2 Incorporated new 4.2 concepts for: Switch Configuration; Sender-Receiver-Serialization; CAN-FD; Large-Data-COM; E2E-Extension; Global Time Synchronization; Support for Post-build ECU-Configuration; Secure-Onboard-Communication; ASIL/QM-Protection",
+        "\u27a2 Introduction of new error classification"
+      ],
+      "page_reference": "Page 5",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc007_q006",
+      "question": "How does the NVRAM manager, located in the Services Layer, manage concurrent access to memory devices and what additional functions does it perform?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The NVRAM manager manages concurrent access to internal and/or external memory devices like flash and EEPROM memory. It also performs distributed and reliable data storage, data checking, provision of default values, etc.",
+      "evidence_snippets": [
+        "A manager offers specific services for multiple clients. It is needed in all cases where pure handler functionality is not enough to abstract from multiple clients.",
+        "Example: The NVRAM manager manages the concurrent access to internal and/or external memory devices like flash and EEPROM memory. It also performs distributed and reliable data storage, data checking, provision of default values etc."
+      ],
+      "page_reference": "Page 25",
+      "difficulty": "medium",
+      "question_type": "definition|causal"
+    },
+    {
+      "id": "doc007_q009",
+      "question": "What are the three communication protocols supported by the CAN Communication Stack, and how do they differ in terms of hardware support?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The CAN Communication Stack supports Classic CAN (CAN 2.0), CAN FD, and CAN XL. Classic CAN is always supported, while CAN FD and CAN XL require specific hardware support.",
+      "evidence_snippets": [
+        "The CAN Communication Stack supports: \u27a2 Classic CAN communication (CAN 2.0) \u27a2 CAN FD communication, if supported by hardware \u27a2 CAN XL communication, if supported by hardware"
+      ],
+      "page_reference": "Page 40",
+      "difficulty": "medium",
+      "question_type": "list|causal"
+    },
+    {
+      "id": "doc007_q012",
+      "question": "How does the Socket Adaptor module (SoAd) function in relation to the TcpIp module, and what is its role in the TCP/IP communication stack?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The Socket Adaptor module (SoAd) is the sole upper layer module of the TcpIp module. It acts as an interface between the application layer and the TcpIp module, facilitating dynamic, socket-based communication via Ethernet.",
+      "evidence_snippets": [
+        "The Socket Adaptor module (SoAd) is the sole upper layer module of the TcpIp module.",
+        "provides dynamic, socket based communication via Ethernet."
+      ],
+      "page_reference": "Page 51",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc007_q024",
+      "question": "How does the PDU Router manage TP routing, and what is its impact on data transfer efficiency?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The PDU Router provides TP routing on-the-fly, which means that the transfer of TP data is started before the full TP data is buffered. This approach enhances data transfer efficiency by reducing latency and improving throughput.",
+      "evidence_snippets": [
+        "Provides TP routing on-the-fly. Transfer of TP data is started before full TP data is buffered"
+      ],
+      "page_reference": "Page 96",
+      "difficulty": "medium",
+      "question_type": "causal"
+    },
+    {
+      "id": "doc007_q032",
+      "question": "How is the configuration data for a module that supports multiple configuration sets and runtime selection implemented, according to the link time configuration section?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "For modules supporting multiple configuration sets with runtime selection, the configuration data is captured within external constant structs. The module receives a pointer to one of these structs at initialization time, allowing it to select the struct during each initialization.",
+      "evidence_snippets": [
+        "Configuration data shall be captured within external constant structs. The module gets a pointer to one of those structs at initialization time. The struct can be selected at each initialization."
+      ],
+      "page_reference": "Page 115",
+      "difficulty": "medium",
+      "question_type": "single-hop"
+    },
+    {
+      "id": "doc007_q003",
+      "question": "How does the AUTOSAR software architecture accommodate non-standard modules, and what constraints apply to their integration?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The AUTOSAR Software Architecture allows for the integration of non-standard modules as Complex Drivers. However, these modules cannot be added as new layers; they must be integrated into the existing structure while considering their configuration in the automatic Basic SW configuration process.",
+      "evidence_snippets": [
+        "non-standard modules can be integrated into AUTOSAR-based systems as Complex Drivers",
+        "further layers cannot be added",
+        "still, their configuration has to be considered in the automatic Basic SW configuration process!"
+      ],
+      "page_reference": "Pages 11-13",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc007_q004",
+      "question": "How does the ECU Abstraction Layer contribute to the independence of higher software layers, and what specific functionality does it provide according to the document?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The ECU Abstraction Layer contributes to the independence of higher software layers by making them independent of the ECU hardware layout. It interfaces drivers from the Microcontroller Abstraction Layer and contains drivers for external devices, offering an API for access to peripherals regardless of their location (internal/external) and connection to the \u00b5C.",
+      "evidence_snippets": [
+        "Make higher software layers independent of ECU hardware layout",
+        "It interfaces the drivers of the Microcontroller Abstraction Layer. It also contains drivers for external devices."
+      ],
+      "page_reference": "Page 16",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc007_q005",
+      "question": "How does the AUTOSAR architecture support communication between internal and external devices, and what specific layers are involved in this process?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf",
+      "answer": "The AUTOSAR architecture supports communication between internal and external devices through the Microcontroller Abstraction Layer (MAL) for internal devices and the ECU Abstraction Layer (EAL) for external devices. Internal drivers located in the MAL control and access internal devices like the internal EEPROM, while external drivers in the EAL access external devices via handlers/drivers of the MAL, such as accessing an external EEPROM through the SPI bus handler.",
+      "evidence_snippets": [
+        "A driver for an internal device is called internal driver and is located in the Microcontroller Abstraction Layer.",
+        "A driver for an external device is called external driver and is located in the ECU Abstraction Layer. It accesses the external device via drivers of the Microcontroller Abstraction Layer."
+      ],
+      "page_reference": "Pages 21-22",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q001",
+      "question": "Based on the information provided in sections 5.1 and A.2, what would be the impact if a constraint defined for software-components is violated during the ECU configuration creation process?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "If a constraint defined for software-components is violated during the ECU configuration creation process, it could lead to misconfiguration and potential issues with the Com stack, as these constraints are typically enforced prior to the generation of the RTE.",
+      "evidence_snippets": [
+        "For each document, possible binding times of constraints are defined and the binding times are typically mentioned in the constraint themselves to give a proper orientation for implementers of AUTOSAR authoring tools.",
+        "prior to the generation of the RTE while the constraints against the definition of an Ecu extract shall be applied when the Ecu configuration for the Com stack is created."
+      ],
+      "page_reference": "Pages 61-63",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q004",
+      "question": "How does the ApmcDefinitionElement class ensure that the upper multiplicity of an element is properly defined, and what are the implications if both `upperMultiplicity` and `upperMultiplicityIsInfinite` attributes are not set?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcDefinitionElement class ensures that the upper multiplicity of an element is properly defined by providing two attributes: `upperMultiplicity` and `upperMultiplicityIsInfinite`. The attribute `upperMultiplicity` specifies a concrete value for the upper multiplicity, while `upperMultiplicityIsInfinite` indicates if the upper multiplicity is infinite. If neither attribute is set, it would violate the constraint that either `upperMultiplicity` or `upperMultiplicityIsInfinite` must exist.",
+      "evidence_snippets": [
+        "For each ApmcDefinitionElement, either the attribute upperMultiplicity or upperMultiplicityIsInfinite shall exist.",
+        "The purpose of attribute upperMultiplicityIsInfinite is to indicate that the upper multiplicity is not defined by the model element itself, but depends on the usage of the model element."
+      ],
+      "page_reference": "Page 18",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q005",
+      "question": "How does the ApmcConfigurationElementDef class support the creation of ordered collections, and what is the significance of this feature in the context of the AUTOSAR Adaptive Platform?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcConfigurationElementDef class supports the creation of ordered collections through the attribute 'requiresIndex', which indicates whether elements in a collection carry an index value to establish order semantically rather than syntactically. This is significant because it allows for the precise control of element order within collections, which is necessary for certain configurations where the sequence of elements matters.",
+      "evidence_snippets": [
+        "Attribute ApmcConfigurationElementDef.requiresIndex has been defined to allow for the creation of ordered collections. The position of an element of the collection within the collection is defined by an index value on the 'value side'.",
+        "In some cases, it is necessary to create collections where the order of elements in the collection is significant."
+      ],
+      "page_reference": "Pages 21-22",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q006",
+      "question": "How does the ApmcChoiceContainerDef emulate inheritance in the M1 model, and what is its relationship with the ApmcParamConfContainerDef?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcChoiceContainerDef emulates inheritance in the M1 model by providing a structural alternative that mimics the creation of sub-classes. It does this by allowing the specification of choice semantics on the container level, which can be aggregated by an ApmcParamConfContainerDef as part of its content.",
+      "evidence_snippets": [
+        "The existence of an ApmcChoiceContainerDef implements a structural alternative in the target-configuration. The behavior of the ApmcChoiceContainerDef has a similar effect as the creation of sub-classes on the M2 model.",
+        "This collection of containers represents the content of the enclosing choice container."
+      ],
+      "page_reference": "Pages 23-24",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q007",
+      "question": "How does the ApmcValueCollection facilitate the management of multiple ApmcFunctionalClusterValues, and what is its role in the target-configuration on the 'value side'?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcValueCollection acts as a collector that allows model elements to refer to multiple ApmcFunctionalClusterValues by creating one reference to the ApmcValueCollection. This class represents the entry point of the target-configuration on the 'value side'.",
+      "evidence_snippets": [
+        "Meta-class ApmcValueCollection acts (as the name already suggests) like a collector, such that model elements that need to refer to a number of different ApmcFunctionalClusterValues can instead simply create one reference to the ApmcValueCollection that in turn refers to the affected ApmcFunctionalClusterValues in the role functionalCluster.",
+        "This class represents the entry point of the target-configuration on the 'value side'."
+      ],
+      "page_reference": "Pages 26-27",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc008_q002",
+      "question": "How does the Adaptive Platform Machine Configuration (APMC) differ from the ECU Configuration (EcuC) in terms of information reuse and model availability on the target?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The APMC assumes that parts of the design model will be available on the target, usually not in ARXML format but converted into a machine-specific one. In contrast, the EcuC often aims for a standalone model containing all the necessary information to configure the BSW Stack.",
+      "evidence_snippets": [
+        "In contrast to the AUTOSAR classic Platform ECU Configuration model (EcuC), which often aims for a standalone model containing the complete information required to configure the BSW Stack, the APMC assumes that parts of the design model will be available on the target (usually not in ARXML format, but converted into a machine specific one).",
+        "For example, if a Service Interface can be used directly to configure an Adaptive Service, then there is no need to create a copy of that information in APMC."
+      ],
+      "page_reference": "Pages 9-10",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc008_q003",
+      "question": "In the context of AUTOSAR AP configuration, what is the primary difference between a fully derived design model and a partially derived design model in terms of their impact on the configuration model complexity and structure?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "A fully derived design model results in all relevant design information being transferred to the configuration model, making it comprehensive but potentially large and complex. In contrast, a partially derived design model only transfers part of the design information, reducing the size and complexity of the configuration model while maintaining flat references or instanceRefs back to the original design model.",
+      "evidence_snippets": [
+        "After this derivation process completes, all relevant design information has become part of the configuration model. This means that the design model is no longer needed and technically might just as well be deleted.",
+        "If the full derivation of the design model to the configuration model, as described in section 2.4.2 is considered to produce too complex models, a possible alternative could be to just derive the design model partially."
+      ],
+      "page_reference": "Pages 12-13",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc008_q009",
+      "question": "How does the definition of a default value for an ApmcIntegerParamDef parameter differ from that of an ApmcBooleanParamDef, and what additional constraints are applied to the integer parameter?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "For both ApmcIntegerParamDef and ApmcBooleanParamDef, the defaultValue attribute represents the default value that applies if the parameter is instantiated on the 'value' side without assigning a dedicated value. However, ApmcIntegerParamDef has additional constraints of min and max attributes to define the allowed range of values, which are not present in ApmcBooleanParamDef.",
+      "evidence_snippets": [
+        "For ApmcBooleanParamDef, it is possible to define a defaultValue, similar to [AP_TPS_APMC_01012]. The values used for the definition of the defaultValue shall follow the regulation imposed by [constr_10584].",
+        "For ApmcIntegerParamDef, it is possible to define a defaultValue. It is also possible to define the allowed range of the specific ApmcIntegerParamDef by means of attributes min and max."
+      ],
+      "page_reference": "Pages 33-34",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc008_q011",
+      "question": "How does the ApmcChoiceContainerReferenceDef differ from the ApmcContainerReferenceDef in terms of functionality and target references?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcChoiceContainerReferenceDef allows for a reference to multiple ApmcContainerDef instances, but only one can be active at any given time, whereas the ApmcContainerReferenceDef is used to reference a single ApmcContainerDef. Both are independent of whether the target is defined within the same ApmcFunctionalClusterDef.",
+      "evidence_snippets": [
+        "Meta-class ApmcContainerReferenceDef shall be used if a reference to one ApmcContainerDef needs to be modeled. (Page 41)",
+        "Meta-class ApmcChoiceContainerReferenceDef shall be used if a reference to more than one ApmcContainerDef needs to be modeled. The semantics of the collection of references is that finally only a single reference out of the possible references shall exist on the \u201cvalue side\u201d. (Page 42)"
+      ],
+      "page_reference": "Pages 41-42",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc008_q012",
+      "question": "How does the ApmcUriForeignReferenceDef differ from the ApmcForeignReferenceDef in terms of the requirement for the target reference to exist within the same model scope?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf",
+      "answer": "The ApmcUriForeignReferenceDef differs from the ApmcForeignReferenceDef in that the target of the flat reference does not need to exist in the same model scope. In contrast, the target of the ApmcForeignReferenceDef is expected to exist in the same model scope as the owner of the reference.",
+      "evidence_snippets": [
+        "The target of the reference is expected to exist in the same model scope as the owner of the ApmcForeignReferenceDef.",
+        "In the case of the ApmcUriForeignReferenceDef, the target of the flat reference is not required to exist in the same model scope."
+      ],
+      "page_reference": "Pages 43-44",
+      "difficulty": "medium",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc009_q001",
+      "question": "What changes were made in the R19-11 release and what was the impact on the Document Status?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "In the R19-11 release, spelling updates were made in chapters 3 and 5, a reference to Communication Management was added in chapter 4, and the Document Status was changed from Final to published.",
+      "evidence_snippets": [
+        "\u2022 Spelling updates in chapters 3 and 5",
+        "\u2022 Changed Document Status from Final to published"
+      ],
+      "page_reference": "Pages 1-2",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc009_q002",
+      "question": "How does standardizing sensor interfaces for automated driving functions reduce development costs and time?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "Standardizing sensor interfaces reduces the effort required to integrate new sensors by specifying both semantic and logical interfaces according to functional safety requirements, which allows OEMs, suppliers, service providers, and tool providers to develop and validate automated driving functions more efficiently.",
+      "evidence_snippets": [
+        "There is a huge potential in reducing development and validation costs by standardizing subsections of the complex hardware and software setup for automated driving functions.",
+        "Currently, the interfaces of sensors for automated driving functions are proprietary and differ between suppliers. Thus, the integration of a new sensor requires a lot of effort as both the semantic as well as the logical interface need to be specified and developed according to functional safety requirements."
+      ],
+      "page_reference": "Page 6",
+      "difficulty": "hard",
+      "question_type": "causal"
+    },
+    {
+      "id": "doc009_q003",
+      "question": "How does the standardization of sensor interfaces in the AUTOSAR Adaptive platform benefit System Designers and Integrators, and what specific aspects of this standardization support these benefits?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "The standardization of sensor interfaces in the AUTOSAR Adaptive platform benefits System Designers by providing a comparable and extendable interface for different sensor types, which supports rapid prototyping. For System Integrators, it offers a standardized description of the interface and configuration, enabling generic, testable software implementation and interoperability between different implementations.",
+      "evidence_snippets": [
+        "From a System Designer perspective including rapid prototyping, the expectation towards the sensor standardization is to rely on a comparable and extendable interface for different sensor types.",
+        "From an Integrator and Application Developer perspective, the standardized description of the interface and configuration is required for the generic, testable software implementation as well as the interoperability between implementations."
+      ],
+      "page_reference": "Pages 7-8",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc009_q004",
+      "question": "What are the constraints that OEMs must consider when specifying sensor information for automated driving functions using ISO standards?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "When specifying sensor information for automated driving functions using ISO standards, OEMs must ensure that the interpretation of sensor signals is described by ISO, the details of a sensor signal should be described by ISO, they want to reuse standardized sensor information from ISO, and the interface might differ for each sensor implementation based on the sensor information description (e.g., resulting in different programming APIs). Additionally, the standardized interface depends on the specific description of the sensor information (e.g., ARXML) and must provide a common interface to enable usage of multiple sensors with different technologies (LIDAR, RADAR, Camera).",
+      "evidence_snippets": [
+        "\u2022 TheinterpretationofsensorsignalsisdescribedbyISO",
+        "\u2022 ThedetailsofasensorsignalshouldbedescribedbytheISO",
+        "\u2022 IwanttoreusethestandardizedsensorinformationfromISO",
+        "\u2022 Theinterfacemightbedifferentforeachsensorimplementationbased on the sensor information description (e.g. the resulting programming APIvariesbetweensensorimplementations)",
+        "\u2022 The standardized interface depends on the specific description of the sensorinformation(e.g. ARXML)"
+      ],
+      "page_reference": "Page 10",
+      "difficulty": "hard",
+      "question_type": "list"
+    },
+    {
+      "id": "doc009_q005",
+      "question": "What is the primary reason for realizing the Sensor Interface as a Service according to the AUTOSAR Adaptive platform, and how does this support future sensor architectures?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "The primary reason for realizing the Sensor Interface as a Service is to universally offer Sensor services within a vehicle deployed on different AUTOSAR platforms (Classic and Adaptive). This supports major future sensor architectures by enabling seamless integration across these platforms.",
+      "evidence_snippets": [
+        "The decision has been taken to realize the Sensor Interface as a Service. The principal reason for this is to universally offer Sensor services within a vehicle deployed on different AUTOSAR platforms (Classic and Adaptive).",
+        "This supports the major future sensor architectures as presented in the figure below."
+      ],
+      "page_reference": "Pages 14-15",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc009_q006",
+      "question": "What are the key constraints that must be met by a standardized interface for sensors used in automated driving applications, according to the document?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "The key constraints include: detailed sensor information shall be specified by ISO, the description of possible sensor information shall be reliable, and the description shall be provided by AUTOSAR (e.g., ARXML).",
+      "evidence_snippets": [
+        "\u2022 ThedetailedsensorinformationshallbespecifiedbyISO",
+        "\u2022 Thedescriptionofthepossiblesensorinformationshallbereliable",
+        "\u2022 ThedescriptionshallbeprovidedbyAUTOSAR(e.g. ARXML)"
+      ],
+      "page_reference": "Page 11",
+      "difficulty": "easy",
+      "question_type": "list"
+    },
+    {
+      "id": "doc009_q007",
+      "question": "How does the service compatibility between a sensor service provider and user get verified, and what is the role of the capability vector in this process?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "The service compatibility between a sensor service provider and user is verified either by the integrator during the deployment phase or by the user during the service discovery phase. The capability vector plays a crucial role by indicating which optional elements are supported by the sensor, allowing the user to check if the required optional elements are provided.",
+      "evidence_snippets": [
+        "The service compatibility between sensor service provider and users are checked either by the integrator in the deployment phase or by the user during the service discovery phase.",
+        "There is a service capability vector indicating which optional element is provided by the Sensor."
+      ],
+      "page_reference": "Pages 17-18",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc009_q008",
+      "question": "What are the three different times when the configuration of the sensor interface connectivity can happen, and what are the implications of each approach?",
+      "source_document": "Explanation of Sensor Interfaces.pdf",
+      "answer": "The configuration of the sensor interface connectivity can happen at design time, connection time, or runtime. Design time involves specifying the whole system and generating interface bindings, ensuring a high safety level but requiring software updates. Connection time allows for multiple interface versions to be specified and validated during system startup, providing flexibility without significantly compromising safety. Runtime configuration offers the most flexibility but complicates safety analysis due to increased configuration variants.",
+      "evidence_snippets": [
+        "\u2022 Design time: An architect or developer specifies the whole system and configures all connections. Then the interface bindings are generated and the whole software is compiled and flashed to the complete environment.",
+        "\u2022 Connection time: When the system is specified and the connections are configured, it is possible to specify more than one interface version for a connection.",
+        "\u2022 Runtime: Clients can connect to any available interface during runtime of the system. This creates a huge amount of flexibility but also the deterministic behaviour of the system decreases."
+      ],
+      "page_reference": "Page 19",
+      "difficulty": "medium",
+      "question_type": "list|causal"
+    },
+    {
+      "id": "doc010_q001",
+      "question": "What is the main purpose of the Diagnostic Manager in the context of SOVD, and how does it differ from its previous role?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The main purpose of the Diagnostic Manager with the introduction of SOVD is to natively support SOVD and act as an SOVD server. Previously, it primarily handled diagnostic services and fault memory according to ISO 14229-1.",
+      "evidence_snippets": [
+        "With the introduction of SOVD the Diagnostic Manager also aims on natively supporting SOVD and therefore acts as an SOVD server.",
+        "BeforetheintroductionofSOVDtheDiagnosticManager\u2019smainpurposewastohandle diagnostic services and fault memory according to ISO 14229-1."
+      ],
+      "page_reference": "Pages 4-7",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc010_q002",
+      "question": "How does the SOVD Gateway route requests to internal SOVD endpoints, and what are the configuration options available?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The SOVD Gateway routes requests based on the entity part in the URI of the SOVD request. It can be configured statically or dynamically discovered using mDNS. The setup is managed through the SOVDGatewayInstantiation in the TPS_Manifest.",
+      "evidence_snippets": [
+        "The SOVD Gateway must extract this part of the URI and route towards the corresponding endpoint.",
+        "The setup of potential internal SOVD endpoints can be statically configured or dynamically discovered using mDNS."
+      ],
+      "page_reference": "Page 6",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc010_q003",
+      "question": "What are the key properties of ASAM SOVD as summarized in the document?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The key properties of ASAM SOVD include central edge node communication, usage of state-of-the-art technologies, support for remote, proximity, and in-vehicle diagnostics use-cases, a self-explaining protocol (no need for ODX based interpretation), UDS as a subset, and support for HPC use-cases.",
+      "evidence_snippets": [
+        "In summary ASAM SOVD has the following key properties: \u2022 Central edge node communication \u2022 Usage of state-of-the-art technologies \u2022 Support of remote, proximity and in-vehicle diagnostics use-cases \u2022 Self-explaining protocol (no need for ODX based interpretation) \u2022 UDS as a subset \u2022 Support for HPC use-cases"
+      ],
+      "page_reference": "Page 5",
+      "difficulty": "easy",
+      "question_type": "list"
+    },
+    {
+      "id": "doc010_q004",
+      "question": "What is the role of the Diagnostic Manager in handling SOVD-specific use cases, and how does it differ from its role in UDS?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The Diagnostic Manager handles SOVD-specific use cases by introducing new interfaces such as SovdAuthorization for authorization and SovdProximityChallenge for proximity challenges. Unlike UDS, where the Diagnostic Manager can simply pass data to the tester, it must interpret dynamic data using compuMethods for SOVD.",
+      "evidence_snippets": [
+        "Use cases that are exclusively for SOVD and find no match in ISO 14229-1 are also supported by the Diagnostic Manager. For these use cases new interfaces are introduced to the Diagnostic Manager that are exclusively used by SOVD.",
+        "For expressing the data interpretation the compuMethod within the SwDataDefProps of the DiagnosticDataElement is used."
+      ],
+      "page_reference": "Pages 8-9",
+      "difficulty": "medium",
+      "question_type": "multi-hop"
+    },
+    {
+      "id": "doc010_q005",
+      "question": "How does the SOVD Gateway handle a vehicle update, and what role does the OTA client play in this process?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "In a vehicle update, the SOVD Gateway routes the request to an SOVD interface of the OTA client, which handles the updates independently. The OTA client acts as the SOVD server, receiving the update request and driving the vehicle update process using Vehicle/Software Packages provided by the backend.",
+      "evidence_snippets": [
+        "In the case of a Vehicle Update the SOVD Gateway routes the request initiated by any SOVD Client towards an SOVD interface of an OTA client, which handles the updates independently, without involving the Diagnostic Manager.",
+        "It means that OTA Client acts as SOVD Server responsible for receiving a single SOVD REST automated software update request and will drive the vehicle update process by using Vehicle/-Software Packages provided by backend."
+      ],
+      "page_reference": "Pages 9-10",
+      "difficulty": "hard",
+      "question_type": "cross-page"
+    },
+    {
+      "id": "doc010_q006",
+      "question": "What is the purpose of the compuMethod in the context of SOVD data interpretation?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The compuMethod within the SwDataDefProps of the DiagnosticDataElement is used to convert the byte stream from the application to valid SOVD JSON for the SOVD client and vice versa, ensuring proper data interpretation.",
+      "evidence_snippets": [
+        "The Diagnostic Manager must then use this compuMethods to convert the byte stream from the application to valid SOVD JSON for the SOVD client and vice versa."
+      ],
+      "page_reference": "Page 8",
+      "difficulty": "easy",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc010_q007",
+      "question": "What is the role of the ara::diag::GenericConfiguration interface in the context of Service-Oriented Vehicle Diagnostics (SOVD)?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "The ara::diag::GenericConfiguration interface enables the Diagnostic Manager to perform multiple operations based on granted access control, streamlining the handling of configurations as bulk-data and conforming to the ASAM SOVD standard.",
+      "evidence_snippets": [
+        "The ara::diag::GenericConfiguration interface enables the Diagnostic Manager to perform multiple operations, based on the granted access control. These operations can be carried out by Adaptive applications using persistence and cryptographic operations."
+      ],
+      "page_reference": "Page 12",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc010_q008",
+      "question": "How does the Non-volatile Memory in the context of AUTOSAR Adaptive Diagnostic Management (DM) ensure data persistence?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "In the context of DM, Non-volatile Memory refers to the persistent information that remains over the shutdown of the DM process, independent of hardware details.",
+      "evidence_snippets": [
+        "In the context of DM, Non-volatile Memory refers to the persistent information over the shutdown of the DM process. This does not depend on HW details."
+      ],
+      "page_reference": "Page 13",
+      "difficulty": "medium",
+      "question_type": "definition"
+    },
+    {
+      "id": "doc010_q009",
+      "question": "Based on the document, how do Snapshot Records and Extended Data Records differ in their role within Diagnostic Trouble Codes (DTCs)?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf",
+      "answer": "Snapshot Records are specific data records associated with a DTC, stored at a certain point during fault detection to aid in fault isolation. Extended Data Records contain statistical data for a DTC and are maintained and stored by the DM.",
+      "evidence_snippets": [
+        "Snapshots (sometimes referred to as freeze frames) are specific data records associated with a DTC and stored in the fault memory at a certain point during fault detection. The DTC specific data-parameters are intended to ease the fault isolation process.",
+        "Contains statistical data for a DTC. Extended data records are assigned to DTCs and maintained and stored by the DM."
+      ],
+      "page_reference": "Page 13",
+      "difficulty": "hard",
+      "question_type": "comparison"
+    },
+    {
+      "id": "doc011_q001",
+      "question": "What is the purpose of this documentation as stated in the document?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares: FWA-INDRV*-MPx-16VRS, FWA-INDRV*-MPx-17VRS, FWA-INDRV*-MPx-18VRS. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares:",
+        "It assists machine operators and installation programmers with troubleshooting."
+      ],
+      "page_reference": "Page 2",
+      "difficulty": "easy",
+      "question_type": "lookup"
+    },
+    {
+      "id": "doc011_q002",
+      "question": "What is the decimal value of the error code '0x2004' in the sercos Service Channel Error Codes table?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The decimal value of the error code '0x2004' is 8196. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x2004, Field=8196"
+      ],
+      "page_reference": "Page 205",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc011_q003",
+      "question": "What is the explanation for error code '0x3003' in the sercos Service Channel Error Codes table?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The explanation for error code '0x3003' is 'Attribute transmission too long'. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x3003, Field=12291, Field=Attribute transmission too long"
+      ],
+      "page_reference": "Page 205",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc011_q004",
+      "question": "What must be done to clear an error caused by exceeding a safely-limited speed threshold in special mode 'safe motion', and which command is used for this purpose?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "To clear the error, you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameterized in P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 or ... P\u20110\u20113290.16.2, SMO: Safely-limited speed 16 parameterized velocity threshold exceeded",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc011_q005",
+      "question": "In the special mode 'Safe motion' with active safety function 'Safety monitored oscillation', what must be done if the safely-reduced speed is exceeded for longer than the tolerance time period, and which command clears this error?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "If the safely-reduced speed (P-0-3290.x.8) is exceeded for longer than the tolerance time period (P-0-3290.x.7), you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In the special mode \"Safe motion\" (with active safety function \"Safety monitored oscillation\") the \"Safely-reduced speed\" (P-0-3290.x.8) was exceeded for longer than the tolerance time period (P-0-3290.x.7)",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc011_q006",
+      "question": "In special mode 'safe motion', when the velocity threshold parameterized in P-0-3290.x.2 is exceeded, which command must be executed to clear the error and re-enable the drive? What requirement ID references this behavior?",
+      "source_document": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be executed to clear the error and re-enable the drive. This is referenced in [F7013 - Detailed diagnostics] on Page 121.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in P-0-3290.x.2 is exceeded",
+        "Afterwards start command 'S-0-0099, C0500 Reset class 1 diagnostics' in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 121",
+      "difficulty": "hardest",
+      "question_type": "requirement_tracing"
+    },
+    {
+      "id": "doc012_q001",
+      "question": "What is the primary purpose of this documentation as described in the document?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions: Drive controller firmware versions MPx-02 to MPx-08 and Firmware versions of supply units of type 'HMV'. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions:"
+      ],
+      "page_reference": "Page 2",
+      "difficulty": "easy",
+      "question_type": "lookup"
+    },
+    {
+      "id": "doc012_q002",
+      "question": "What is the remedy for 'Master does not exchange any cyclic output data' in the EtherNet/IP communication table on Page 187?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "Check master status. (Page 187, Table: Cause=Master does not exchange any cyclic output data, Remedy=Check master status)",
+      "evidence_snippets": [
+        "Cause=Master does not exchange any cyclic output data, Remedy=Check master status"
+      ],
+      "page_reference": "Page 187",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc012_q003",
+      "question": "What is the remedy for 'Bus connection interrupted' in the DeviceNet communication table on Page 187?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "Check cable and interface. (Page 187, Table: Cause=Bus connection interrupted, Remedy=Check cable and interface)",
+      "evidence_snippets": [
+        "Cause=Bus connection interrupted, Remedy=Check cable and interface"
+      ],
+      "page_reference": "Page 187",
+      "difficulty": "medium",
+      "question_type": "parameter_extraction"
+    },
+    {
+      "id": "doc012_q004",
+      "question": "What must be done if the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', and which command is used to clear the error?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "If the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameter setting. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameter\u2010ized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"",
+        "Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary."
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc012_q005",
+      "question": "What is the procedure for handling an exceeded position limit in 'P-0-3242, Safely-monitored position 1, negative' during special mode 'safe motion', and what command must be executed to clear the error?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "If the position limit parameterized in 'P-0-3242, Safely-monitored position 1, negative' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameterized position limit values. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\"",
+        "Check command value input and adjust it according to para\u2010\nmeterized position limit values"
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hard",
+      "question_type": "relationship"
+    },
+    {
+      "id": "doc012_q006",
+      "question": "In special mode 'safe motion', when a velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' or similar parameters is exceeded, what specific command must be executed to clear the error and re-enable the drive? Which requirement ID references this behavior?",
+      "source_document": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and then set drive enable again. This is referenced in [Page 165] under the Cause and Remedy table for F7013 Safely-limited speed exceeded.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "page_reference": "Page 165",
+      "difficulty": "hardest",
+      "question_type": "requirement_tracing"
+    }
+  ]
+}

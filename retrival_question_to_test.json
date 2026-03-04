@@ -1,0 +1,419 @@
+{
+  "questions": [
+    {
+      "id": "doc001_q001",
+      "question": "What is the purpose of the ARTI API and at which level of the operating system is it intended to be used?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "id": "doc001_q002",
+      "question": "How does the ARTI interface manage task state transitions, and what specific hooks are used for these transitions?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "id": "doc001_q003",
+      "question": "What parameters must be set when the OS/ARTI Adapter calls ArtiTaskInfo, and how do these parameters contribute to building the initial task list?",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "id": "doc002_q001",
+      "question": "What is the maximum number of transformers that can be connected in a chain, and what limitation causes this constraint?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q002",
+      "question": "What is the maximum length of a transformer chain, and how does this configuration affect intra-ECU and inter-ECU communication?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q005",
+      "question": "What is the significance of the error code E_SAFETY_INVALID_SEQ (0x42) and how does it differ from E_SAFETY_INVALID_REP (0x41)?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q009",
+      "question": "Based on the information provided, how does the function <Mip>_Inv_<transformerId> handle variable size arrays with arrayImplPolicy set to payloadAsPointerToArray, and what is the significance of this in the context of data transformation?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q011",
+      "question": "How does the configuration parameter XfrmInstanceId in the EcucModuleDef for transformers differ from other parameters, and what is its purpose?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q014",
+      "question": "Which upstream requirements are not applicable to the General Specification of Transformers as listed in the C section, and what is the total number of these non-applicable requirements?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q003",
+      "question": "Based on the general specifications for transformers, what specific actions should a transformer take when it encounters unexpected data, and how is this behavior configured?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q004",
+      "question": "Based on the error handling mechanism described, what would be the outcome if a safety transformer detects valid data with a repeated counter and then a serializer transformer encounters a malformed message?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q006",
+      "question": "Based on the information provided, what is the role of the `csTransactionHandle` parameter in the function `<Mip>_<transformerId>` and under what conditions does it appear?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc002_q007",
+      "question": "Given the conditions specified in [SWS_Xfrm_00100] and the function definition in [SWS_Xfrm_00102], what would be the behavior of the transformer if a hard error (0x80-0xFF) is encountered during Client/Server communication?",
+      "source_document": "General Specification of Transformers.pdf"
+    },
+    {
+      "id": "doc003_q001",
+      "question": "What significant change was made to the document in the R22-11 release, and how does it relate to security?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q002",
+      "question": "Define the term 'CryptoPrimitive' and explain its relationship with a CryptoDriverObject.",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q003",
+      "question": "List the input documents and related standards and norms that are referenced for the utilization of crypto services.",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q004",
+      "question": "What is the primary role of the Crypto Service Manager (CSM) in the AUTOSAR crypto stack, and how does it manage concurrent access to cryptographic services?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q005",
+      "question": "How does the Crypto Interface (CRYIF) facilitate communication between the CSM and the Crypto Driver (CRYPTO), and what is its role in handling asynchronous requests?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q006",
+      "question": "What is the difference between the streaming approach and the single call approach for processing crypto services, and when is each approach more beneficial?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q007",
+      "question": "What is the primary difference in key storage between hardware (HW) and software (SW) cryptographic implementations as described in the document?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q008",
+      "question": "How does the configuration process of the crypto stack start, and what are the main steps involved in configuring the cryptographic primitives and keys?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc003_q009",
+      "question": "What specific key element is required for the Message Authentication Code (MAC) service to function correctly?",
+      "source_document": "Utilization of Crypto Services.pdf"
+    },
+    {
+      "id": "doc004_q001",
+      "question": "What is the role of the Operating System Interface (OSI) in the AUTOSAR Adaptive Platform, and which entity or entities does it serve?",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "id": "doc004_q002",
+      "question": "Based on the document, what changes were made to requirements in the AUTOSAR AP R23-11 release, and which specific requirements were added or modified?",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "id": "doc004_q003",
+      "question": "What is the primary function of the Operating System Interface (OSI) within the AUTOSAR Adaptive Platform, and how does it support the Execution Management Functional Cluster?",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "id": "doc004_q004",
+      "question": "Explain the rationale behind requiring POSIX PSE51 compliance for the Operating System provided to Adaptive Application Processes and provide an example of a use case it supports.",
+      "source_document": "Requirements on Operating System Interface.pdf"
+    },
+    {
+      "id": "doc005_q001",
+      "question": "What are the transport protocols that can be used for Raw Data Streams over Ethernet using IP based protocols, and how do they differ in terms of reliability?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q006",
+      "question": "What security protocols are supported for securing Raw Data Stream communication, and how do they differ in their application based on the transport protocol used?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q002",
+      "question": "How does the media clock consumer use the information received in an IEEE1722 stream to synchronize its local clock, and what is the role of the CRF subtype in this process?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q003",
+      "question": "What is the requirement for handling raw data streams without datatype information, and how does it relate to the Communication Management's responsibilities?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q005",
+      "question": "What mechanisms can be used to achieve secure communication in the Raw Data Streaming Interface, and where are these security functions configured?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q009",
+      "question": "What specific actions are taken by the destructor of an IEEE1722RawDataStreamConsumer or IEEE1722RawDataStreamProducer instance if a local communication connection is still active?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q012",
+      "question": "What specific actions should be taken by the WriteData operation of an IEEE1722RawDataStreamProducer instance if it is interrupted by the system during data processing?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q014",
+      "question": "What is the purpose of the move constructor for the RawDataStreamClient class, and how does it differ from the copy constructor?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q004",
+      "question": "What specific requirement does the Communication Management need to fulfill in order to support Raw Data Streams, and how does it relate to the underlying network protocol?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc005_q007",
+      "question": "How does the RawDataStreamClient handle data reading in a multicast scenario, and what is the significance of using zero-copy semantics in this context?",
+      "source_document": "Specification of Raw Data Stream.pdf"
+    },
+    {
+      "id": "doc006_q001",
+      "question": "What is the primary function of the FC Firewall in the context of the Adaptive Platform, and how does it adapt to different vehicle contexts during runtime?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q002",
+      "question": "How does the FC Firewall use the EventReporter interface, and what is its significance in terms of security events?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q009",
+      "question": "What specific header file should be generated for each modeled FirewallStateSwitchInterface, and what is the purpose of the multiple inclusion guard?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q010",
+      "question": "How does the `ThrowAsException` function in the `ara::fw::FwErrorDomain` class handle exceptions, and what is its thread safety property?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q011",
+      "question": "What is the rationale behind not implementing the feature of Firewall filter rule (de-)activation during runtime as specified in requirement FO_RS_Fw_00009?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q003",
+      "question": "How does the FC Firewall manage network packet patterns and what happens in case of a pattern match or no-match scenario?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q004",
+      "question": "How does the firewall handle stateful packet inspection for TCP, and what specific checks are performed to manage open connections and state transitions?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q005",
+      "question": "How does the FC Firewall handle network packets containing multiple SOME/IP messages, and what specific actions must be taken to ensure each message is validated according to the firewall rules?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q006",
+      "question": "How does the FC Firewall determine which StateDependentFirewall to activate when no ModeDeclaration has been reported, and what is the process for switching to a different StateDependentFirewall during runtime?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc006_q007",
+      "question": "How does the FC Firewall ensure that information loss is minimized when SEvs with the same ID are aggregated by the IdsM, and what specific set of SEvs does it specify for this purpose?",
+      "source_document": "Specification of Firewall for Adaptive Platform.pdf"
+    },
+    {
+      "id": "doc007_q001",
+      "question": "What significant changes were introduced in the R25-11 release of the Layered Software Architecture document, and how do they compare to the changes made in the R24-11 release?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q002",
+      "question": "What new concepts were introduced in AUTOSAR Release 4.2.1, and how did they impact the system's security capabilities?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q006",
+      "question": "How does the NVRAM manager, located in the Services Layer, manage concurrent access to memory devices and what additional functions does it perform?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q009",
+      "question": "What are the three communication protocols supported by the CAN Communication Stack, and how do they differ in terms of hardware support?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q012",
+      "question": "How does the Socket Adaptor module (SoAd) function in relation to the TcpIp module, and what is its role in the TCP/IP communication stack?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q024",
+      "question": "How does the PDU Router manage TP routing, and what is its impact on data transfer efficiency?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q032",
+      "question": "How is the configuration data for a module that supports multiple configuration sets and runtime selection implemented, according to the link time configuration section?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q003",
+      "question": "How does the AUTOSAR software architecture accommodate non-standard modules, and what constraints apply to their integration?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q004",
+      "question": "How does the ECU Abstraction Layer contribute to the independence of higher software layers, and what specific functionality does it provide according to the document?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc007_q005",
+      "question": "How does the AUTOSAR architecture support communication between internal and external devices, and what specific layers are involved in this process?",
+      "source_document": "AUTOSAR Layered Software Architecture.pdf"
+    },
+    {
+      "id": "doc008_q001",
+      "question": "Based on the information provided in sections 5.1 and A.2, what would be the impact if a constraint defined for software-components is violated during the ECU configuration creation process?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q004",
+      "question": "How does the ApmcDefinitionElement class ensure that the upper multiplicity of an element is properly defined, and what are the implications if both `upperMultiplicity` and `upperMultiplicityIsInfinite` attributes are not set?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q005",
+      "question": "How does the ApmcConfigurationElementDef class support the creation of ordered collections, and what is the significance of this feature in the context of the AUTOSAR Adaptive Platform?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q006",
+      "question": "How does the ApmcChoiceContainerDef emulate inheritance in the M1 model, and what is its relationship with the ApmcParamConfContainerDef?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q007",
+      "question": "How does the ApmcValueCollection facilitate the management of multiple ApmcFunctionalClusterValues, and what is its role in the target-configuration on the 'value side'?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q002",
+      "question": "How does the Adaptive Platform Machine Configuration (APMC) differ from the ECU Configuration (EcuC) in terms of information reuse and model availability on the target?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q003",
+      "question": "In the context of AUTOSAR AP configuration, what is the primary difference between a fully derived design model and a partially derived design model in terms of their impact on the configuration model complexity and structure?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q009",
+      "question": "How does the definition of a default value for an ApmcIntegerParamDef parameter differ from that of an ApmcBooleanParamDef, and what additional constraints are applied to the integer parameter?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q011",
+      "question": "How does the ApmcChoiceContainerReferenceDef differ from the ApmcContainerReferenceDef in terms of functionality and target references?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc008_q012",
+      "question": "How does the ApmcUriForeignReferenceDef differ from the ApmcForeignReferenceDef in terms of the requirement for the target reference to exist within the same model scope?",
+      "source_document": "Adaptive Platform Machine Configuration.pdf"
+    },
+    {
+      "id": "doc009_q001",
+      "question": "What changes were made in the R19-11 release and what was the impact on the Document Status?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q002",
+      "question": "How does standardizing sensor interfaces for automated driving functions reduce development costs and time?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q003",
+      "question": "How does the standardization of sensor interfaces in the AUTOSAR Adaptive platform benefit System Designers and Integrators, and what specific aspects of this standardization support these benefits?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q004",
+      "question": "What are the constraints that OEMs must consider when specifying sensor information for automated driving functions using ISO standards?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q005",
+      "question": "What is the primary reason for realizing the Sensor Interface as a Service according to the AUTOSAR Adaptive platform, and how does this support future sensor architectures?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q006",
+      "question": "What are the key constraints that must be met by a standardized interface for sensors used in automated driving applications, according to the document?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q007",
+      "question": "How does the service compatibility between a sensor service provider and user get verified, and what is the role of the capability vector in this process?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc009_q008",
+      "question": "What are the three different times when the configuration of the sensor interface connectivity can happen, and what are the implications of each approach?",
+      "source_document": "Explanation of Sensor Interfaces.pdf"
+    },
+    {
+      "id": "doc010_q001",
+      "question": "What is the main purpose of the Diagnostic Manager in the context of SOVD, and how does it differ from its previous role?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q002",
+      "question": "How does the SOVD Gateway route requests to internal SOVD endpoints, and what are the configuration options available?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q003",
+      "question": "What are the key properties of ASAM SOVD as summarized in the document?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q004",
+      "question": "What is the role of the Diagnostic Manager in handling SOVD-specific use cases, and how does it differ from its role in UDS?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q005",
+      "question": "How does the SOVD Gateway handle a vehicle update, and what role does the OTA client play in this process?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q006",
+      "question": "What is the purpose of the compuMethod in the context of SOVD data interpretation?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q007",
+      "question": "What is the role of the ara::diag::GenericConfiguration interface in the context of Service-Oriented Vehicle Diagnostics (SOVD)?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q008",
+      "question": "How does the Non-volatile Memory in the context of AUTOSAR Adaptive Diagnostic Management (DM) ensure data persistence?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    },
+    {
+      "id": "doc010_q009",
+      "question": "Based on the document, how do Snapshot Records and Extended Data Records differ in their role within Diagnostic Trouble Codes (DTCs)?",
+      "source_document": "Explanation of Service-Oriented Vehicle Diagnostics.pdf"
+    }
+  ]
+}

@@ -1,0 +1,1406 @@
+{
+  "evaluation_info": {
+    "total_questions": 12,
+    "evaluation_mode": "document",
+    "total_time_seconds": 138.00948548316956,
+    "avg_time_per_question": 11.500790456930796,
+    "timestamp": "2026-03-03 19:51:14"
+  },
+  "aggregate_metrics": {
+    "found": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "rank": {
+      "mean": 2.25,
+      "std": 1.6393596310755,
+      "min": 1.0,
+      "max": 6.0,
+      "median": 1.5
+    },
+    "mrr": {
+      "mean": 0.6694444444444444,
+      "std": 0.343041497687674,
+      "min": 0.16666666666666666,
+      "max": 1.0,
+      "median": 0.75
+    },
+    "precision@1": {
+      "mean": 0.5,
+      "std": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.5
+    },
+    "precision@3": {
+      "mean": 0.8333333333333334,
+      "std": 0.3726779962499649,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "precision@5": {
+      "mean": 0.9166666666666666,
+      "std": 0.2763853991962833,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "precision@10": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "recall@1": {
+      "mean": 0.5,
+      "std": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.5
+    },
+    "recall@3": {
+      "mean": 0.8333333333333334,
+      "std": 0.3726779962499649,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "recall@5": {
+      "mean": 0.9166666666666666,
+      "std": 0.2763853991962833,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "recall@10": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0,
+      "median": 1.0
+    },
+    "ndcg@1": {
+      "mean": 0.5,
+      "std": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.5
+    },
+    "ndcg@3": {
+      "mean": 0.6884882922619097,
+      "std": 0.3660545456739602,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.8154648767857288
+    },
+    "ndcg@5": {
+      "mean": 0.7207260261981214,
+      "std": 0.31786366892593854,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 0.8154648767857288
+    },
+    "ndcg@10": {
+      "mean": 0.7504099584571232,
+      "std": 0.2606565577979125,
+      "min": 0.3562071871080222,
+      "max": 1.0,
+      "median": 0.8154648767857288
+    }
+  },
+  "by_question_type": {
+    "lookup": {
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_mrr": 0.18333333333333335,
+      "mean_precision@5": 0.5
+    },
+    "parameter_extraction": {
+      "count": 4,
+      "success_rate": 1.0,
+      "mean_mrr": 0.7083333333333333,
+      "mean_precision@5": 1.0
+    },
+    "relationship": {
+      "count": 4,
+      "success_rate": 1.0,
+      "mean_mrr": 0.875,
+      "mean_precision@5": 1.0
+    },
+    "requirement_tracing": {
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_mrr": 0.6666666666666666,
+      "mean_precision@5": 1.0
+    }
+  },
+  "by_difficulty": {
+    "easy": {
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_mrr": 0.18333333333333335,
+      "mean_precision@5": 0.5
+    },
+    "medium": {
+      "count": 4,
+      "success_rate": 1.0,
+      "mean_mrr": 0.7083333333333333,
+      "mean_precision@5": 1.0
+    },
+    "hard": {
+      "count": 4,
+      "success_rate": 1.0,
+      "mean_mrr": 0.875,
+      "mean_precision@5": 1.0
+    },
+    "hardest": {
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_mrr": 0.6666666666666666,
+      "mean_precision@5": 1.0
+    }
+  },
+  "by_document": {
+    "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf": {
+      "questions": 6,
+      "success_rate": 1.0,
+      "mean_mrr": 0.4777777777777778,
+      "mean_precision@5": 1.0
+    },
+    "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf": {
+      "questions": 6,
+      "success_rate": 1.0,
+      "mean_mrr": 0.8611111111111112,
+      "mean_precision@5": 0.8333333333333334
+    }
+  },
+  "latency_stats": {
+    "mean_ms": 10252.346793810526,
+    "median_ms": 10349.016189575195,
+    "std_ms": 536.5737851973533,
+    "min_ms": 8758.333444595337,
+    "max_ms": 10889.511585235596,
+    "p95_ms": 10778.206551074982,
+    "p99_ms": 10867.250578403473
+  },
+  "failure_analysis": {
+    "total_failures": 0,
+    "failure_rate": 0.0,
+    "failures_by_type": {},
+    "failures_by_difficulty": {},
+    "sample_failures": []
+  },
+  "detailed_results": [
+    {
+      "question_id": "doc001_q001",
+      "evaluation_mode": "document",
+      "question": "What is the purpose of this documentation as stated in the document?",
+      "answer": "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares: FWA-INDRV*-MPx-16VRS, FWA-INDRV*-MPx-17VRS, FWA-INDRV*-MPx-18VRS. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares:",
+        "It assists machine operators and installation programmers with troubleshooting."
+      ],
+      "evidence_match": [
+        {
+          "snippet": "This documentation contains the descriptions of the diagnostic messages implemented in the following firmwares:",
+          "found_in_rank": null,
+          "found_in_filename": null
+        },
+        {
+          "snippet": "It assists machine operators and installation programmers with troubleshooting.",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "lookup",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "AUTOSAR Layered Software Architecture.pdf",
+        "Utilization of Crypto Services.pdf",
+        "AUTOSAR_SRS_OS.pdf",
+        "Utilization of Crypto Services.pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "AUTOSAR_SRS_WatchdogDriver.pdf",
+        "AUTOSAR_SRS_RTE.pdf",
+        "Requirements on Operating System Interface.pdf",
+        "AUTOSAR_SWS_AdaptivePlatformTypes.pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "AUTOSAR Layered Software Architecture.pdf",
+          "content": "R25-11 20\nAUTOSAR_CP_EXP_LayeredSoftwareArchitecture\n5acXjzUk\n\n[Table 1 on Page 10]\n2\ntj4 Introduction\n9\n:d\ni Purpose and Inputs\ne\ng\na\np\nPurpose of this document",
+          "score": 0.015889029003783105,
+          "section": "Document ID 53",
+          "dense_score": 0.66014564,
+          "sparse_score": null,
+          "rerank_score": 0.6601457108236158
+        },
+        {
+          "filename": "Utilization of Crypto Services.pdf",
+          "content": "SAR CP R25-11\nTable of Contents\n1 Introduction 5\n1.1 Purpose of the Document . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n1.2 Scope of the Document . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n1.3 Limitations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n2 Definition of terms and acronyms 6\n2.1 Acronyms and abbreviations . . . . . . . . . . . . . . . . . . . . . . . . . 6\n2.2 Definition of terms . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .",
+          "score": 0.012781497261107728,
+          "section": "AUTOSAR",
+          "dense_score": 0.653074,
+          "sparse_score": null,
+          "rerank_score": 0.6530739458649265
+        },
+        {
+          "filename": "AUTOSAR_SRS_OS.pdf",
+          "content": "11\n1 Scope of this Document\nThe goal of this document is to define the high-level requirements for the AUTOSAR\noperating system. 6of39 DocumentID8: AUTOSAR_SRS_OS\n\n[Page 7]\nRequirements on Operating System\nAUTOSAR CP R22-11\n2 How to Read this Document\n2.1 Conventions to be used\n\u2022 The representation of requirements in AUTOSAR documents follows the table\nspecified in [TPS_STDT_00078] (see Standardization Template [1]).",
+          "score": 0.007936507936507936,
+          "section": "AUTOSAR",
+          "dense_score": 0.64439034,
+          "sparse_score": null,
+          "rerank_score": 0.6443903323238077
+        },
+        {
+          "filename": "Utilization of Crypto Services.pdf",
+          "content": "of the Document\nThisdocumentdescribestheintendedusageoftheAUTOSARspecifiedcryptographic\nfunctionality starting with AUTOSAR 4.3. The purpose of the document is to introduce\nthe user/integrator to the principle concepts of the AUTOSAR supported cryptographic\nfunctionality. 1.2 Scope of the Document",
+          "score": 0.014306006493506494,
+          "section": "AUTOSAR",
+          "dense_score": 0.6438639,
+          "sparse_score": null,
+          "rerank_score": 0.6438639350044704
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "7\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P | 2013-04-26 | Applies to MPx\u201118 as well\n\n\n[Table 2 on Page 24]\nWhat? | How? | For example... Important facts which are to\nbe highlighted in the body\ntext | Boldface | With the saturation method, this error is generated, when...\nParameter names, diagnostic\nmessage names, function\ndesignations | Quotation marks | In parameter \"S\u20110\u20110375, List of diagnostic numbers\", the last\n50 diagnostic message numbers are...\n\n\n[Page 25]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 23/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\n1.2 Documentations\n1.2.1 Drive Systems, System Components\nDrive systems with single axis or double axis drive controllers\nTitle Documentation type Document typecode1) Material number\nRexroth IndraDrive \u2026 DOK-INDRV*-\u2026 R911\u2026\nCs Project Planning Manual HCS01******-PRxx-EN-P 322210\nDrive Systems with HCS01\nMi Drive Systems Project Planning Manual KCU02+KSM02-PRxx-EN-P 335703\nWith KCU02, KSM02, KMS02\nDrive Systems With HMV01/02 Project Planning Manual SYSTEM*****-PRxx-EN-P 309636\nHMS01/02, HMD01, HCS02/03\nSupply Units, Power Sections Project Planning Manual HMV-S-D+HCS-PRxx-EN-P 318790\nHMV, HMS, HMD, HCS02, HCS03\nDrive Controllers Project Planning Manual CSH********-PRxx-EN-P 295012\nControl Sections CSB01, CSH01,\nCDB01\nControl sections Project Planning Manual Cxx02******-PRxx-EN-P 338962\nCSE02, CSB02, CDB02, CSH02\nAdditional Components and Project Planning Manual ADDCOMP****-PRxx-EN-P 306140\nAccessories\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: PR01 is the first edition of a Project\nPlanning Manual)\nTab.1-4: Documentations \u2013 Drive Systems, System Components\n1.2.2 Motors\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDyn \u2026 DOK-MOTOR*-\u2026 R911\u2026\nA Asynchronous Motors MAD / MAF Project Planning Manual MAD/MAF****-PRxx-EN-P 295781\nH Synchronous Kit Spindle Motors Project Planning Manual MBS-H******-PRxx-EN-P 297895\nL Synchronous Linear Motors Project Planning Manual MLF********-PRxx-EN-P 293635\nL Ironless Linear Motors MCL Project Planning Manual MCL********-PRxx-EN-P 330592\nS Synchronous Motors MKE Project Planning Manual MKE*GEN2***-PRxx-EN-P 297663\nS Synchronous Motors MSK Project Planning Manual MSK********-PRxx-EN-P 296289\nS Synchronous Motors MSM Data Sheet MSM********-DAxx-EN-P 329338\nS Synchronous Motors QSK Project Planning Manual QSK********-PRxx-EN-P 330321\nT Synchronous Torque Motors Project Planning Manual MBT********-PRxx-EN-P 298798\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: PR01 is the first edition of a Project\nPlanning Manual)\nTab.1-5: Documentations \u2013 Motors\n\n[Table 1 on Page 25]\nTitle\nRexroth IndraDrive \u2026 | Documentation type | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nCs\nDrive Systems with HCS01 | Project Planning Manual | HCS01******-PRxx-EN-P | 322210\nMi Drive Systems\nWith KCU02, KSM02, KMS02 | Project Planning Manual | KCU02+KSM02-PRxx-EN-P | 335703\nDrive Systems With HMV01/02\nHMS01/02, HMD01, HCS02/03 | Project Planning Manual | SYSTEM*****-PRxx-EN-P | 309636\nSupply Units, Power Sections\nHMV, HMS, HMD, HCS02, HCS03 | Project Planning Manual | HMV-S-D+HCS-PRxx-EN-P | 318790\nDrive Controllers\nControl Sections CSB01, CSH01,\nCDB01 | Project Planning Manual | CSH********-PRxx-EN-P | 295012\nControl sections\nCSE02, CSB02, CDB02, CSH02 | Project Planning Manual | Cxx02******-PRxx-EN-P | 338962\nAdditional Components and\nAccessories | Project Planning Manual | ADDCOMP****-PRxx-EN-P | 306140\n\n\n[Table 2 on Page 25]\nTitle\nRexroth IndraDyn \u2026 | Kind of documentation | Document typecode1)\nDOK-MOTOR*-\u2026 | Material number\nR911\u2026\nA Asynchronous Motors MAD / MAF | Project Planning Manual | MAD/MAF****-PRxx-EN-P | 295781\nH Synchronous Kit Spindle Motors | Project Planning Manual | MBS-H******-PRxx-EN-P | 297895\nL Synchronous Linear Motors | Project Planning Manual | MLF********-PRxx-EN-P | 293635\nL Ironless Linear Motors MCL | Project Planning Manual | MCL********-PRxx-EN-P | 330592\nS Synchronous Motors MKE | Project Planning Manual | MKE*GEN2***-PRxx-EN-P | 297663\nS Synchronous Motors MSK | Project Planning Manual | MSK********-PRxx-EN-P | 296289\nS Synchronous Motors MSM | Data Sheet | MSM********-DAxx-EN-P | 329338\nS Synchronous Motors QSK | Project Planning Manual | QSK********-PRxx-EN-P | 330321\nT Synchronous Torque Motors | Project Planning Manual | MBT********-PRxx-EN-P | 298798\n\n\n[Page 26]\n24/431 Bosch Rexroth AG DOK-INDRV*-GEN1-DIAG**-RE05-EN-P\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\n1.2.3 Cables\nTitle Kind of documentation Document typecode1) Material number\nDOK-CONNEC-\u2026 R911\u2026\nRexroth Connection Cables Selection Data CABLE*INDRV-CAxx-EN-P 322949\nIndraDrive and IndraDyn\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: CA02 is the second edition of the docu\u2010\nmentation \"Selection Data\")\nTab.1-6: Documentations \u2013 Cables\n1.2.4 Firmware\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDrive ... DOK-INDRV*-\u2026 R911\u2026\nMPx-18 Application Manual MP*-18VRS**-APxx-EN-P 338673\nFunctions\nMPx-18 Release Notes MP*-18VRS**-RNxx-EN-P 338658\nVersion Notes\nMPx-17 Application Manual MP*-17VRS**-APxx-EN-P 331236\nFunctions\nMPx-17 Release Notes MP*-17VRS**-RNxx-EN-P 331588\nVersion Notes\nMPx-16 Application Manual MP*-16VRS**-APxx-EN-P 326767\nFunctions\nMPx-16 Release Notes MP*-16VRS**-RNxx-EN-P 329272\nVersion Notes\nMPx-16 to MPx-18 Reference Book GEN1-PARA**-RExx-EN-P 328651\nParameters\nMPx-16 to MPx-18 Reference Book GEN1-DIAG**-RExx-EN-P 326738\nDiagnostic Messages\nIntegrated Safety Technology Application Manual SI3-**VRS**-APxx-EN-P 332634\nas of MPx-1x\nIntegrated Safety Technology Application Manual SI3*SMO-VRS-APxx-EN-P 338920\nas of MPx-1x (Safe Motion)\nRexroth IndraMotion MLD Reference Book MLD-SYSLIB2-RExx-EN-P 332627\nLibraries as of MPx-17\nRexroth IndraMotion MLD Reference Book MLD-SYSLIB3-RExx-EN-P 338916\nLibraries as of MPx-18\n\n[Table 1 on Page 26]\nTitle | Kind of documentation | Document typecode1)\nDOK-CONNEC-\u2026 | Material number\nR911\u2026\nRexroth Connection Cables\nIndraDrive and IndraDyn | Selection Data | CABLE*INDRV-CAxx-EN-P | 322949\n\n\n[Table 2 on Page 26]\nTitle\nRexroth IndraDrive ... | Kind of documentation | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nMPx-18\nFunctions | Application Manual | MP*-18VRS**-APxx-EN-P | 338673\nMPx-18\nVersion Notes | Release Notes | MP*-18VRS**-RNxx-EN-P | 338658\nMPx-17\nFunctions | Application Manual | MP*-17VRS**-APxx-EN-P | 331236\nMPx-17\nVersion Notes | Release Notes | MP*-17VRS**-RNxx-EN-P | 331588\nMPx-16\nFunctions | Application Manual | MP*-16VRS**-APxx-EN-P | 326767\nMPx-16\nVersion Notes | Release Notes | MP*-16VRS**-RNxx-EN-P | 329272\nMPx-16 to MPx-18\nParameters | Reference Book | GEN1-PARA**-RExx-EN-P | 328651\nMPx-16 to MPx-18\nDiagnostic Messages | Reference Book | GEN1-DIAG**-RExx-EN-P | 326738\nIntegrated Safety Technology\nas of MPx-1x | Application Manual | SI3-**VRS**-APxx-EN-P | 332634\nIntegrated Safety Technology\nas of MPx-1x (Safe Motion) | Application Manual | SI3*SMO-VRS-APxx-EN-P | 338920\nRexroth IndraMotion MLD\nLibraries as of MPx-17 | Reference Book | MLD-SYSLIB2-RExx-EN-P | 332627\nRexroth IndraMotion MLD\nLibraries as of MPx-18 | Reference Book | MLD-SYSLIB3-RExx-EN-P | 338916\n\n\n[Page 27]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 25/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDrive ... DOK-INDRV*-\u2026 R911\u2026\nRexroth IndraMotion MLD Application Manual MLD2-**VRS*-APxx-EN-P 334351\nas of MPx-17\nRexroth IndraMotion MLD Application Manual MLD3-**VRS*-APRS-EN-P 338914\nas of MPx-18\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: RE02 is the second edition of a Refer\u2010\nence Book)\nTab.1-7: Documentations \u2013 Firmware\n\n[Table 1 on Page 27]\nTitle\nRexroth IndraDrive ... | Kind of documentation | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nRexroth IndraMotion MLD\nas of MPx-17 | Application Manual | MLD2-**VRS*-APxx-EN-P | 334351\nRexroth IndraMotion MLD\nas of MPx-18 | Application Manual | MLD3-**VRS*-APRS-EN-P | 338914\n\n\n[Page 28]\n26/431 Bosch Rexroth AG DOK-INDRV*-GEN1-DIAG**-RE05-EN-P\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\n\n[Page 29]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 27/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nImportant Directions for Use\n2 Important Directions for Use\n2.1 Appropriate Use\n2.1.1 Introduction\nRexroth products reflect the state-of-the-art in their development and their\nmanufacture.",
+          "score": 0.007692307692307693,
+          "section": "We need the following information to handle your feedback",
+          "dense_score": 0.6351465,
+          "sparse_score": null,
+          "rerank_score": 0.6351464819263324
+        }
+      ],
+      "latency_ms": 8758.333444595337,
+      "metrics": {
+        "found": true,
+        "rank": 5,
+        "mrr": 0.2,
+        "precision@1": 0.0,
+        "precision@3": 0.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 0.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.0,
+        "ndcg@5": 0.38685280723454163,
+        "ndcg@10": 0.38685280723454163
+      }
+    },
+    {
+      "question_id": "doc001_q002",
+      "evaluation_mode": "document",
+      "question": "What is the decimal value of the error code '0x2004' in the sercos Service Channel Error Codes table?",
+      "answer": "The decimal value of the error code '0x2004' is 8196. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x2004, Field=8196"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "Error code=0x2004, Field=8196",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "parameter_extraction",
+      "difficulty": "medium",
+      "page_reference": "Page 205",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "AUTOSAR_SRS_XCP.pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "AUTOSAR Layered Software Architecture.pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "AUTOSAR_RS_LogAndTrace.pdf",
+        "AUTOSAR_SWS_BFXLibrary.pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "AUTOSAR_TR_FoundationReleaseOverview.pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "Ident N\u00b0: F2892\n8.8 SERCOS Service Channel Error Codes / Error Messages of\nSerial Communication\nFor some errors concerning serial communication, the error codes defined in\nthe SERCOS interface specification are used (see \"SERCOS interface\nSpecification\", chapter 4.3.2.3 \"Service channel error messages\"). These\ncodes are also used in the case of incorrect access to control and system\nparameters.",
+          "score": 0.00819672131147541,
+          "section": "F2892 - Attributes Display",
+          "dense_score": null,
+          "sparse_score": 0.26246345,
+          "rerank_score": NaN
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "The target bits are not allowed | Check the mapper block types (P\u20110\u20113330.x.1) and their\nrespective possible target bits. See also documentation \"Integrated Safety Technology\",\n\"Safe Motion\" \"Mapper block types\".",
+          "score": 0.00819672131147541,
+          "section": "IO mapper inputs",
+          "dense_score": 0.0,
+          "sparse_score": null,
+          "rerank_score": NaN
+        },
+        {
+          "filename": "AUTOSAR_SRS_XCP.pdf",
+          "content": "her been\ndeveloped, nor tested for non-automotive applications. The word AUTOSAR and the AUTOSAR logo are registered trademarks. 3 of 16 Document ID 429: AUTOSAR_SRS_XCP\n\n[Page 4]\nRequirements on Module XCP\nAUTOSAR CP R22-11\nTable of Contents\n1 Scope of Document ................................................................................................ 5\n2 Conventions to be used ......................................................................................... 6\n3 Functional Overview............................................................................................... 7\n4 Requirements Specification ................................................................................... 8\n4.1 Functional Requirements ................................................................................ 8\n4.1.1 General ...................................................................................................... 8\n4.1.2 Features .................................................................................................. 10\n4.1.3 Initialisation .............................................................................................. 13\n4.1.4 Normal Operation .................................................................................... 13\n4.1.5 Shutdown Operation................................................................................ 14\n4.1.6 Fault Operation ........................................................................................ 14\n5 Requirements Tracing .......................................................................................... 15\n6 References ........................................................................................................... 16\n4 of 16 Document ID 429: AUTOSAR_SRS_XCP\n\n[Page 5]\nRequirements on Module XCP\nAUTOSAR CP R22-11\n1 Scope of Document\nThis document defines general rules and formats for requirements specification\nwithin AUTOSAR.",
+          "score": 0.008064516129032258,
+          "section": "Introduction",
+          "dense_score": 0.0,
+          "sparse_score": null,
+          "rerank_score": NaN
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "nning Manual;\ncheck possibility of group supply\nDevice defective Replace device\nF2860 - Attributes Display: F2860\nDiagnostic no. : F2860\nDiagnostic no. as of 18VRS: 000F2860\nError can be cleared: \u2013\n8.8 sercos Service Channel Error Codes / Error Messages of Se\u2010\nrial Communication\nFor some errors concerning serial communication, the error codes defined in\nthe sercos specification are used (see \"sercos Specification\", chapter 4.3.2.3\n\"Service channel error messages\").",
+          "score": 0.008064516129032258,
+          "section": "As of MPx17VRS, in addition",
+          "dense_score": null,
+          "sparse_score": 0.19948375,
+          "rerank_score": NaN
+        },
+        {
+          "filename": "AUTOSAR Layered Software Architecture.pdf",
+          "content": "nd/or software implementation) and the material contained in it, as released by AUTOSAR, is for the\npurpose of information only. AUTOSAR and the companies that have contributed to it shall not be liable for any use of the work. The material contained in this work is protected by copyright and other types of intellectual property rights. The commercial\nexploitation of the material contained in this work requires a license to such intellectual property rights.",
+          "score": 0.007936507936507936,
+          "section": "Document ID 53",
+          "dense_score": 0.0,
+          "sparse_score": null,
+          "rerank_score": NaN
+        }
+      ],
+      "latency_ms": 9680.51791191101,
+      "metrics": {
+        "found": true,
+        "rank": 2,
+        "mrr": 0.5,
+        "precision@1": 0.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.6309297535714575,
+        "ndcg@5": 0.6309297535714575,
+        "ndcg@10": 0.6309297535714575
+      }
+    },
+    {
+      "question_id": "doc001_q003",
+      "evaluation_mode": "document",
+      "question": "What is the explanation for error code '0x3003' in the sercos Service Channel Error Codes table?",
+      "answer": "The explanation for error code '0x3003' is 'Attribute transmission too long'. (Page 205, Table on Page 205)",
+      "evidence_snippets": [
+        "Error code=0x3003, Field=12291, Field=Attribute transmission too long"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "Error code=0x3003, Field=12291, Field=Attribute transmission too long",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "parameter_extraction",
+      "difficulty": "medium",
+      "page_reference": "Page 205",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "Addresses of projected I/Os\" (as of MPx05) do not react to\nservice channel communication | Locate defective SERCOS\u2011III slave(s) and remove cause of\nerror for this (these) slave(s)\nTransition command \"S\u20110\u20110127, C0100 Communication\nphase 3 transition check\" or \"S\u20110\u20110128, C5200\nCommunication phase 4 transition check\" is not completed\nor only completed with error in one or more SERCOS III\nslaves | Locate defective SERCOS\u2011III slave(s) and remove cause of\nerror for this (these) slave(s)\n\n\n[Table 2 on Page 429]\nContained in 02VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \n\n\n[Table 3 on Page 429]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 4 on Page 429]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 429]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 6 on Page 429]\nCause | Remedy\nMeasuring system cable defective | Check measuring system cable\nMeasuring system defective | Replace measuring system\nEncoder interface defective | Replace control section or entire drive controller\n\n\n[Page 430]\n428/619 Bosch Rexroth AG DOK-INDRV*-GEN-**VRS**-WA08-EN-P\nRexroth IndraDrive MPx-02 to MPx-08 and HMV\nDiagnostic Command Messages\n10.2.109 C0271 Incorrect parameterization of motor encoder (hardware)\nAllocation Contained in 02VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nDuring the execution of the command \"C0200\" an error with regard to the pa\u2010\nrameterization of the motor encoder hardware was detected.",
+          "score": 0.00819672131147541,
+          "section": "Addresses of projected drives\" or \"P\u20110\u20111604, CCD",
+          "dense_score": 0.63139737,
+          "sparse_score": null,
+          "rerank_score": 0.6313974407150141
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "(60 seconds) for switching the SERCOS III slaves\nto phase 4 has elapsed but one or more slaves which did not enter phase 4\nyet. Cause Remedy\nOne or more SERCOS III slaves entered in \"P\u20110\u20111601, CCD: Locate defective SERCOS\u2011III slave(s) and remove cause of\nAddresses of projected drives\" or \"P\u20110\u20111604, CCD: error for this (these) slave(s)\nAddresses of projected I/Os\" (as of MPx05) do not react to\nservice channel communication\nTransition command \"S\u20110\u20110127, C0100 Communication Locate defective SERCOS\u2011III slave(s) and remove cause of\nphase 3 transition check\" or \"S\u20110\u20110128, C5200 error for this (these) slave(s)\nCommunication phase 4 transition check\" is not completed\nor only completed with error in one or more SERCOS III\nslaves\nSee also Functional Description of firmware \"Cross Communication (CCD)\"\nC0267 - Attributes Display: C0267\nIdent N\u00b0: C0267\n10.2.108 C0270 Error when reading encoder data => motor encoder\nAllocation Contained in 02VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nDuring the execution of the command \"C0200\" an error during the reading of\nthe encoder data from the data memory of the motor encoder was detected.",
+          "score": 0.008064516129032258,
+          "section": "Check configuration of CCD process data",
+          "dense_score": 0.6270437,
+          "sparse_score": null,
+          "rerank_score": 0.6270437838829591
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "des defined in\nthe sercos specification are used (see \"sercos Specification\", chapter 4.3.2.3\n\"Service channel error messages\"). These codes are also used in the case of\nincorrect access to control and system parameters.",
+          "score": 0.015873015873015872,
+          "section": "As of MPx17VRS, in addition",
+          "dense_score": 0.62125194,
+          "sparse_score": null,
+          "rerank_score": 0.6212520138503694
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "Ident N\u00b0: F2892\n8.8 SERCOS Service Channel Error Codes / Error Messages of\nSerial Communication\nFor some errors concerning serial communication, the error codes defined in\nthe SERCOS interface specification are used (see \"SERCOS interface\nSpecification\", chapter 4.3.2.3 \"Service channel error messages\"). These\ncodes are also used in the case of incorrect access to control and system\nparameters.",
+          "score": 0.016009221311475412,
+          "section": "F2892 - Attributes Display",
+          "dense_score": 0.61830425,
+          "sparse_score": null,
+          "rerank_score": 0.6183042877315147
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "ogbook entry: \"244\")\nReplace cable / device if necessary\nF3000 - Attributes Display: F3000\nDiagnostic no. : F3000\nDiagnostic no. as of 18VRS: 040F3000\nError can be cleared: \u2713\nCritical SMO error: \u2013\n8.6.3 F3001 Time error during safe cyclic transmission\nAllocation Contained in 16VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 17VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 18VRS: \u00abMPB\u00bb \u00ab-\u00bb \u00abMPM\u00bb \u00abMPC\u00bb\nIn the \"CIP Safety on sercos\" stack, a time error has occurred in the cyclic\nprotocol. Cause Remedy",
+          "score": 0.007692307692307693,
+          "section": "CRC error time coordination message (logbook entry: \"242\") Remove disturbances",
+          "dense_score": 0.6112989,
+          "sparse_score": null,
+          "rerank_score": 0.6112988883845197
+        }
+      ],
+      "latency_ms": 10115.419626235962,
+      "metrics": {
+        "found": true,
+        "rank": 3,
+        "mrr": 0.3333333333333333,
+        "precision@1": 0.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.5,
+        "ndcg@5": 0.5,
+        "ndcg@10": 0.5
+      }
+    },
+    {
+      "question_id": "doc001_q004",
+      "evaluation_mode": "document",
+      "question": "What must be done to clear an error caused by exceeding a safely-limited speed threshold in special mode 'safe motion', and which command is used for this purpose?",
+      "answer": "To clear the error, you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameterized in P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 or ... P\u20110\u20113290.16.2, SMO: Safely-limited speed 16 parameterized velocity threshold exceeded",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In special mode \"safe motion\", velocity threshold parameterized in P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 or ... P\u20110\u20113290.16.2, SMO: Safely-limited speed 16 parameterized velocity threshold exceeded",
+          "found_in_rank": null,
+          "found_in_filename": null
+        },
+        {
+          "snippet": "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again",
+          "found_in_rank": 4,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        }
+      ],
+      "question_type": "relationship",
+      "difficulty": "hard",
+      "page_reference": "Page 121",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "D\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nUp to MPx06, the name of this diagnostic message was \"F7013\nVelocity threshold exceeded\". In the special mode \"safe motion\", a parameterized velocity threshold was\nexceeded. Cause Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010 Check command value input and adjust it according to pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary.",
+          "score": 0.015772478887232988,
+          "section": "Position window",
+          "dense_score": 0.7251822,
+          "sparse_score": null,
+          "rerank_score": 0.725182195573652
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113270.0.2\" is exceeded,\nthe error F7020 is generated. [Table 1 on Page 121]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold\nparameterized in\n\u25cf P\u20110\u20113290.1.2, SMO: Safely-limited speed 1\nor\n\u25cf P\u20110\u20113290.2.2, SMO: Safely-limited speed 2\nor\n\u25cf ...\n\u25cf P\u20110\u20113290.16.2, SMO: Safely-limited speed 16\nparameterized velocity threshold exceeded | Check command value input and adjust it according to\nparameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.0152073732718894,
+          "section": "Position window",
+          "dense_score": 0.7183751,
+          "sparse_score": null,
+          "rerank_score": 0.718375131982026
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "of global safety technology functions\"), the drive in\nnormal operation and in special mode monitors the current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113234, Safe maximum\nspeed\" is exceeded, the error F7020 is generated. Cause Remedy\nVelocity threshold was incorrectly parameterized Check and, if necessary, increase parameter setting of\n\"P\u20110\u20113234, Safe maximum speed\"\nIncorrect command value input; i.e.",
+          "score": 0.013431013431013432,
+          "section": "Position window",
+          "dense_score": 0.696919,
+          "sparse_score": null,
+          "rerank_score": 0.6969191091030897
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "cessary. Then start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nagain. [Table 2 on Page 165]\nContained in 02VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 3 on Page 165]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 4 on Page 165]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 165]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 6 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010\nized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"\nor\n\u25cf \"P\u20110\u20113254, Safely-limited speed 2\"\nor\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded | Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.0078125,
+          "section": "Position window",
+          "dense_score": 0.6785796,
+          "sparse_score": null,
+          "rerank_score": 0.6785796276061072
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf \"P\u20110\u20113254, Safely-limited speed 2\" Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded\nF7013 - Attributes Display: F7013\nIdent N\u00b0: F7013\n8.3.6 F7014 Timeout safely-monitored transient oscillation\nAllocation Contained in 02VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\n\n[Table 1 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\" or\n\u25cf \"P\u20110\u20113252, Safely-monitored position 2, negative\"\nwas exceeded.",
+          "score": 0.007692307692307693,
+          "section": "Position window",
+          "dense_score": 0.67061496,
+          "sparse_score": null,
+          "rerank_score": 0.6706149393015319
+        }
+      ],
+      "latency_ms": 10483.546495437622,
+      "metrics": {
+        "found": true,
+        "rank": 2,
+        "mrr": 0.5,
+        "precision@1": 0.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.6309297535714575,
+        "ndcg@5": 0.6309297535714575,
+        "ndcg@10": 0.6309297535714575
+      }
+    },
+    {
+      "question_id": "doc001_q005",
+      "evaluation_mode": "document",
+      "question": "In the special mode 'Safe motion' with active safety function 'Safety monitored oscillation', what must be done if the safely-reduced speed is exceeded for longer than the tolerance time period, and which command clears this error?",
+      "answer": "If the safely-reduced speed (P-0-3290.x.8) is exceeded for longer than the tolerance time period (P-0-3290.x.7), you must check the command value input and adjust it according to the parameter setting. If necessary, change the parameter setting. Afterwards, start command 'S-0-0099, C0500 Reset class 1 diagnostics' to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In the special mode \"Safe motion\" (with active safety function \"Safety monitored oscillation\") the \"Safely-reduced speed\" (P-0-3290.x.8) was exceeded for longer than the tolerance time period (P-0-3290.x.7)",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In the special mode \"Safe motion\" (with active safety function \"Safety monitored oscillation\") the \"Safely-reduced speed\" (P-0-3290.x.8) was exceeded for longer than the tolerance time period (P-0-3290.x.7)",
+          "found_in_rank": 3,
+          "found_in_filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+        },
+        {
+          "snippet": "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again",
+          "found_in_rank": 3,
+          "found_in_filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+        }
+      ],
+      "question_type": "relationship",
+      "difficulty": "hard",
+      "page_reference": "Page 121",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "exceeded\nF7013 - Detailed diagnostics 0053000E\n0054000E\nF7013 - Attributes Display: F7013\nDiagnostic no. : F7013\nDiagnostic no. as of 18VRS: 060F7013\nError can be cleared: \u2713\nCritical SMO error: \u2013\n8.3.4 F7014 Timeout in safely-monitored transient oscillation\nAllocation Contained in 16VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 17VRS: \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb \u00ab-\u00bb\nContained in 18VRS: \u00abMPB\u00bb \u00ab-\u00bb \u00abMPM\u00bb \u00abMPC\u00bb\nIn the special mode \"Safe motion\" with configured safety function \"Safety\nmonitored oscillation\" monitoring takes place so that the parameterized\nvelocity limit is not exceeded for a longer period than the parameterized time\nperiod\nCause Remedy\nIn the special mode \"Safe motion\" (with active safety Check command value input and adjust it according to\nfunction \"Safety monitored oscillation\") the \"Safely- parameter setting\nreduced speed\" (P\u20110\u20113290.x.8) was exceeded for longer\n\u2011 or \u2011\nthan the tolerance time period (P\u20110\u20113290.x.7)\nCheck parameter setting and change it, if necessary.",
+          "score": 0.015549662487945998,
+          "section": "Position window",
+          "dense_score": 0.7450932,
+          "sparse_score": null,
+          "rerank_score": 0.7450932198202271
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "k command value input in control unit or, for drive-inter\u2010\ntoo high nal interpolation, check parameterized positioning data (cf. \"S\u20110\u20110259, Positioning velocity\" or \"P\u20110\u20114007, Positioning\nblock velocity\")\nWith active safety function \"Safely-limited position\", axis was Home axis safely\nmoved without safe reference faster than 20 % of safe maxi\u2010\n\u2011 or \u2011\nmum speed\nDo not exceed allowed speed\nDescription of error reaction: \"Behavior in the Case of Safety Technology\nErrors\"\nSee also documentation\n\u25cf Up to MPx06: \"Integrated Safety Technology\"\n\u25cf As of MPx07: \"Integrated Safety Technology According to IEC61508\"\nF7020 - Attributes Display: F7020\nIdent N\u00b0: F7020\n\n[Table 1 on Page 166]\nCause | Remedy\nIn special mode \"safe motion\" (with activated safety func\u2010\ntion \"Safely-monitored transient oscillation\") the \"Safely-\nlimited speed\" (P\u20110\u20113247, P\u20110\u20113257, P\u20110\u20113267 or\nP\u20110\u20113277) was exceeded longer than the tolerance time\nset (P\u20110\u20113248, P\u20110\u20113258, P\u20110\u20113268 or P\u20110\u20113278).",
+          "score": 0.008064516129032258,
+          "section": "Position window",
+          "dense_score": 0.7133311,
+          "sparse_score": null,
+          "rerank_score": 0.7133310637269212
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "eck command value input and adjust it according to\nparameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary. Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nagain\n\n\n[Table 2 on Page 121]\nContained in 16VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \n\n\n[Table 3 on Page 121]\nContained in 18VRS: | \u00abMPB\u00bb | \u00ab-\u00bb | \u00abMPM\u00bb | \u00abMPC\u00bb\n\n\n[Table 4 on Page 121]\nCause | Remedy\nIn the special mode \"Safe motion\" (with active safety\nfunction \"Safety monitored oscillation\") the \"Safely-\nreduced speed\" (P\u20110\u20113290.x.8) was exceeded for longer\nthan the tolerance time period (P\u20110\u20113290.x.7) | Check command value input and adjust it according to\nparameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.007936507936507936,
+          "section": "Position window",
+          "dense_score": 0.7093185,
+          "sparse_score": null,
+          "rerank_score": 0.7093184741750332
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf \"P\u20110\u20113254, Safely-limited speed 2\" Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded\nF7013 - Attributes Display: F7013\nIdent N\u00b0: F7013\n8.3.6 F7014 Timeout safely-monitored transient oscillation\nAllocation Contained in 02VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\n\n[Table 1 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\" or\n\u25cf \"P\u20110\u20113252, Safely-monitored position 2, negative\"\nwas exceeded.",
+          "score": 0.0078125,
+          "section": "Position window",
+          "dense_score": 0.6932845,
+          "sparse_score": null,
+          "rerank_score": 0.6932845234543445
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "ed special mode \"Safe motion\". 0053000C\nEnabling control is activated longer than the parameterized maximum time\n(P-0-3290.x.6). 0053000D\nPosition window (P-0-3290.x.3) exceeded. 0053000E\nVelocity threshold (P-0-3290.x.2) exceeded. 0053000F\nVelocity threshold (P-0-3290.x.8) exceeded longer than maximum allowed\ntime window (P-0-3290.x.7). 00530010\nVelocity threshold (P-0-3270.0.2) exceeded. 00530011\nPosition window (P-0-3285.0.2) exceeded.",
+          "score": 0.01575682382133995,
+          "section": "Contact the Service Helpdesk & Hotline under",
+          "dense_score": 0.6898502,
+          "sparse_score": null,
+          "rerank_score": 0.6898501949994483
+        }
+      ],
+      "latency_ms": 10308.893203735352,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    {
+      "question_id": "doc001_q006",
+      "evaluation_mode": "document",
+      "question": "In special mode 'safe motion', when the velocity threshold parameterized in P-0-3290.x.2 is exceeded, which command must be executed to clear the error and re-enable the drive? What requirement ID references this behavior?",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be executed to clear the error and re-enable the drive. This is referenced in [F7013 - Detailed diagnostics] on Page 121.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in P-0-3290.x.2 is exceeded",
+        "Afterwards start command 'S-0-0099, C0500 Reset class 1 diagnostics' in order to clear error and then set drive enable again"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In special mode 'safe motion', velocity threshold parameterized in P-0-3290.x.2 is exceeded",
+          "found_in_rank": 3,
+          "found_in_filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+        },
+        {
+          "snippet": "Afterwards start command 'S-0-0099, C0500 Reset class 1 diagnostics' in order to clear error and then set drive enable again",
+          "found_in_rank": 1,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        }
+      ],
+      "question_type": "requirement_tracing",
+      "difficulty": "hardest",
+      "page_reference": "Page 121",
+      "ground_truth": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "cessary. Then start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nagain. [Table 2 on Page 165]\nContained in 02VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 3 on Page 165]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 4 on Page 165]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 165]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 6 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010\nized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"\nor\n\u25cf \"P\u20110\u20113254, Safely-limited speed 2\"\nor\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded | Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.00819672131147541,
+          "section": "Position window",
+          "dense_score": 0.7503636,
+          "sparse_score": null,
+          "rerank_score": 0.7503635121316192
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "D\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nUp to MPx06, the name of this diagnostic message was \"F7013\nVelocity threshold exceeded\". In the special mode \"safe motion\", a parameterized velocity threshold was\nexceeded. Cause Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010 Check command value input and adjust it according to pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary.",
+          "score": 0.015640273704789834,
+          "section": "Position window",
+          "dense_score": 0.7463833,
+          "sparse_score": null,
+          "rerank_score": 0.7463833786221152
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113270.0.2\" is exceeded,\nthe error F7020 is generated. [Table 1 on Page 121]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold\nparameterized in\n\u25cf P\u20110\u20113290.1.2, SMO: Safely-limited speed 1\nor\n\u25cf P\u20110\u20113290.2.2, SMO: Safely-limited speed 2\nor\n\u25cf ...\n\u25cf P\u20110\u20113290.16.2, SMO: Safely-limited speed 16\nparameterized velocity threshold exceeded | Check command value input and adjust it according to\nparameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.015749007936507936,
+          "section": "Position window",
+          "dense_score": 0.744899,
+          "sparse_score": null,
+          "rerank_score": 0.7448988718307651
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "in parameter setting\n\u25cf P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf P\u20110\u20113290.2.2, SMO: Safely-limited speed 2 Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf ...\n\u25cf P\u20110\u20113290.16.2, SMO: Safely-limited speed 16\nparameterized velocity threshold exceeded\nF7013 - Detailed diagnostics 0053000E\n0054000E\nF7013 - Attributes Display: F7013\nDiagnostic no. : F7013\nDiagnostic no.",
+          "score": 0.0078125,
+          "section": "Position window",
+          "dense_score": 0.74262035,
+          "sparse_score": null,
+          "rerank_score": 0.7426203899045366
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "ed special mode \"Safe motion\". 0053000C\nEnabling control is activated longer than the parameterized maximum time\n(P-0-3290.x.6). 0053000D\nPosition window (P-0-3290.x.3) exceeded. 0053000E\nVelocity threshold (P-0-3290.x.2) exceeded. 0053000F\nVelocity threshold (P-0-3290.x.8) exceeded longer than maximum allowed\ntime window (P-0-3290.x.7). 00530010\nVelocity threshold (P-0-3270.0.2) exceeded. 00530011\nPosition window (P-0-3285.0.2) exceeded.",
+          "score": 0.015889029003783105,
+          "section": "Contact the Service Helpdesk & Hotline under",
+          "dense_score": 0.7390739,
+          "sparse_score": null,
+          "rerank_score": 0.7390738634767965
+        }
+      ],
+      "latency_ms": 10631.276369094849,
+      "metrics": {
+        "found": true,
+        "rank": 3,
+        "mrr": 0.3333333333333333,
+        "precision@1": 0.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.5,
+        "ndcg@5": 0.5,
+        "ndcg@10": 0.5
+      }
+    },
+    {
+      "question_id": "doc002_q001",
+      "evaluation_mode": "document",
+      "question": "What is the primary purpose of this documentation as described in the document?",
+      "answer": "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions: Drive controller firmware versions MPx-02 to MPx-08 and Firmware versions of supply units of type 'HMV'. It assists machine operators and installation programmers with troubleshooting. (Page 2)",
+      "evidence_snippets": [
+        "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions:"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "This documentation contains the descriptions of all diagnostic messages implemented in the following firmware versions:",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "lookup",
+      "difficulty": "easy",
+      "page_reference": "Page 2",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "Utilization of Crypto Services.pdf",
+        "Utilization of Crypto Services.pdf",
+        "AUTOSAR Layered Software Architecture.pdf",
+        "AUTOSAR_SRS_OS.pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "AUTOSAR_SRS_WatchdogDriver.pdf",
+        "AUTOSAR_RS_Main.pdf",
+        "AUTOSAR_PRS_SOMEIPProtocol.pdf",
+        "AUTOSAR_SWS_AdaptivePlatformTypes.pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "Utilization of Crypto Services.pdf",
+          "content": "SAR CP R25-11\nTable of Contents\n1 Introduction 5\n1.1 Purpose of the Document . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n1.2 Scope of the Document . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n1.3 Limitations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5\n2 Definition of terms and acronyms 6\n2.1 Acronyms and abbreviations . . . . . . . . . . . . . . . . . . . . . . . . . 6\n2.2 Definition of terms . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .",
+          "score": 0.00819672131147541,
+          "section": "AUTOSAR",
+          "dense_score": 0.62911534,
+          "sparse_score": null,
+          "rerank_score": 0.6291153099533575
+        },
+        {
+          "filename": "Utilization of Crypto Services.pdf",
+          "content": "of the Document\nThisdocumentdescribestheintendedusageoftheAUTOSARspecifiedcryptographic\nfunctionality starting with AUTOSAR 4.3. The purpose of the document is to introduce\nthe user/integrator to the principle concepts of the AUTOSAR supported cryptographic\nfunctionality. 1.2 Scope of the Document",
+          "score": 0.013811642565813867,
+          "section": "AUTOSAR",
+          "dense_score": 0.6228962,
+          "sparse_score": null,
+          "rerank_score": 0.622896203684453
+        },
+        {
+          "filename": "AUTOSAR Layered Software Architecture.pdf",
+          "content": "R25-11 20\nAUTOSAR_CP_EXP_LayeredSoftwareArchitecture\n5acXjzUk\n\n[Table 1 on Page 10]\n2\ntj4 Introduction\n9\n:d\ni Purpose and Inputs\ne\ng\na\np\nPurpose of this document",
+          "score": 0.014785823005001086,
+          "section": "Document ID 53",
+          "dense_score": 0.617144,
+          "sparse_score": null,
+          "rerank_score": 0.6171440005904446
+        },
+        {
+          "filename": "AUTOSAR_SRS_OS.pdf",
+          "content": "11\n1 Scope of this Document\nThe goal of this document is to define the high-level requirements for the AUTOSAR\noperating system. 6of39 DocumentID8: AUTOSAR_SRS_OS\n\n[Page 7]\nRequirements on Operating System\nAUTOSAR CP R22-11\n2 How to Read this Document\n2.1 Conventions to be used\n\u2022 The representation of requirements in AUTOSAR documents follows the table\nspecified in [TPS_STDT_00078] (see Standardization Template [1]).",
+          "score": 0.0078125,
+          "section": "AUTOSAR",
+          "dense_score": 0.6122588,
+          "sparse_score": null,
+          "rerank_score": 0.6122587554192714
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "7\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P | 2013-04-26 | Applies to MPx\u201118 as well\n\n\n[Table 2 on Page 24]\nWhat? | How? | For example... Important facts which are to\nbe highlighted in the body\ntext | Boldface | With the saturation method, this error is generated, when...\nParameter names, diagnostic\nmessage names, function\ndesignations | Quotation marks | In parameter \"S\u20110\u20110375, List of diagnostic numbers\", the last\n50 diagnostic message numbers are...\n\n\n[Page 25]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 23/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\n1.2 Documentations\n1.2.1 Drive Systems, System Components\nDrive systems with single axis or double axis drive controllers\nTitle Documentation type Document typecode1) Material number\nRexroth IndraDrive \u2026 DOK-INDRV*-\u2026 R911\u2026\nCs Project Planning Manual HCS01******-PRxx-EN-P 322210\nDrive Systems with HCS01\nMi Drive Systems Project Planning Manual KCU02+KSM02-PRxx-EN-P 335703\nWith KCU02, KSM02, KMS02\nDrive Systems With HMV01/02 Project Planning Manual SYSTEM*****-PRxx-EN-P 309636\nHMS01/02, HMD01, HCS02/03\nSupply Units, Power Sections Project Planning Manual HMV-S-D+HCS-PRxx-EN-P 318790\nHMV, HMS, HMD, HCS02, HCS03\nDrive Controllers Project Planning Manual CSH********-PRxx-EN-P 295012\nControl Sections CSB01, CSH01,\nCDB01\nControl sections Project Planning Manual Cxx02******-PRxx-EN-P 338962\nCSE02, CSB02, CDB02, CSH02\nAdditional Components and Project Planning Manual ADDCOMP****-PRxx-EN-P 306140\nAccessories\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: PR01 is the first edition of a Project\nPlanning Manual)\nTab.1-4: Documentations \u2013 Drive Systems, System Components\n1.2.2 Motors\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDyn \u2026 DOK-MOTOR*-\u2026 R911\u2026\nA Asynchronous Motors MAD / MAF Project Planning Manual MAD/MAF****-PRxx-EN-P 295781\nH Synchronous Kit Spindle Motors Project Planning Manual MBS-H******-PRxx-EN-P 297895\nL Synchronous Linear Motors Project Planning Manual MLF********-PRxx-EN-P 293635\nL Ironless Linear Motors MCL Project Planning Manual MCL********-PRxx-EN-P 330592\nS Synchronous Motors MKE Project Planning Manual MKE*GEN2***-PRxx-EN-P 297663\nS Synchronous Motors MSK Project Planning Manual MSK********-PRxx-EN-P 296289\nS Synchronous Motors MSM Data Sheet MSM********-DAxx-EN-P 329338\nS Synchronous Motors QSK Project Planning Manual QSK********-PRxx-EN-P 330321\nT Synchronous Torque Motors Project Planning Manual MBT********-PRxx-EN-P 298798\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: PR01 is the first edition of a Project\nPlanning Manual)\nTab.1-5: Documentations \u2013 Motors\n\n[Table 1 on Page 25]\nTitle\nRexroth IndraDrive \u2026 | Documentation type | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nCs\nDrive Systems with HCS01 | Project Planning Manual | HCS01******-PRxx-EN-P | 322210\nMi Drive Systems\nWith KCU02, KSM02, KMS02 | Project Planning Manual | KCU02+KSM02-PRxx-EN-P | 335703\nDrive Systems With HMV01/02\nHMS01/02, HMD01, HCS02/03 | Project Planning Manual | SYSTEM*****-PRxx-EN-P | 309636\nSupply Units, Power Sections\nHMV, HMS, HMD, HCS02, HCS03 | Project Planning Manual | HMV-S-D+HCS-PRxx-EN-P | 318790\nDrive Controllers\nControl Sections CSB01, CSH01,\nCDB01 | Project Planning Manual | CSH********-PRxx-EN-P | 295012\nControl sections\nCSE02, CSB02, CDB02, CSH02 | Project Planning Manual | Cxx02******-PRxx-EN-P | 338962\nAdditional Components and\nAccessories | Project Planning Manual | ADDCOMP****-PRxx-EN-P | 306140\n\n\n[Table 2 on Page 25]\nTitle\nRexroth IndraDyn \u2026 | Kind of documentation | Document typecode1)\nDOK-MOTOR*-\u2026 | Material number\nR911\u2026\nA Asynchronous Motors MAD / MAF | Project Planning Manual | MAD/MAF****-PRxx-EN-P | 295781\nH Synchronous Kit Spindle Motors | Project Planning Manual | MBS-H******-PRxx-EN-P | 297895\nL Synchronous Linear Motors | Project Planning Manual | MLF********-PRxx-EN-P | 293635\nL Ironless Linear Motors MCL | Project Planning Manual | MCL********-PRxx-EN-P | 330592\nS Synchronous Motors MKE | Project Planning Manual | MKE*GEN2***-PRxx-EN-P | 297663\nS Synchronous Motors MSK | Project Planning Manual | MSK********-PRxx-EN-P | 296289\nS Synchronous Motors MSM | Data Sheet | MSM********-DAxx-EN-P | 329338\nS Synchronous Motors QSK | Project Planning Manual | QSK********-PRxx-EN-P | 330321\nT Synchronous Torque Motors | Project Planning Manual | MBT********-PRxx-EN-P | 298798\n\n\n[Page 26]\n24/431 Bosch Rexroth AG DOK-INDRV*-GEN1-DIAG**-RE05-EN-P\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\n1.2.3 Cables\nTitle Kind of documentation Document typecode1) Material number\nDOK-CONNEC-\u2026 R911\u2026\nRexroth Connection Cables Selection Data CABLE*INDRV-CAxx-EN-P 322949\nIndraDrive and IndraDyn\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: CA02 is the second edition of the docu\u2010\nmentation \"Selection Data\")\nTab.1-6: Documentations \u2013 Cables\n1.2.4 Firmware\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDrive ... DOK-INDRV*-\u2026 R911\u2026\nMPx-18 Application Manual MP*-18VRS**-APxx-EN-P 338673\nFunctions\nMPx-18 Release Notes MP*-18VRS**-RNxx-EN-P 338658\nVersion Notes\nMPx-17 Application Manual MP*-17VRS**-APxx-EN-P 331236\nFunctions\nMPx-17 Release Notes MP*-17VRS**-RNxx-EN-P 331588\nVersion Notes\nMPx-16 Application Manual MP*-16VRS**-APxx-EN-P 326767\nFunctions\nMPx-16 Release Notes MP*-16VRS**-RNxx-EN-P 329272\nVersion Notes\nMPx-16 to MPx-18 Reference Book GEN1-PARA**-RExx-EN-P 328651\nParameters\nMPx-16 to MPx-18 Reference Book GEN1-DIAG**-RExx-EN-P 326738\nDiagnostic Messages\nIntegrated Safety Technology Application Manual SI3-**VRS**-APxx-EN-P 332634\nas of MPx-1x\nIntegrated Safety Technology Application Manual SI3*SMO-VRS-APxx-EN-P 338920\nas of MPx-1x (Safe Motion)\nRexroth IndraMotion MLD Reference Book MLD-SYSLIB2-RExx-EN-P 332627\nLibraries as of MPx-17\nRexroth IndraMotion MLD Reference Book MLD-SYSLIB3-RExx-EN-P 338916\nLibraries as of MPx-18\n\n[Table 1 on Page 26]\nTitle | Kind of documentation | Document typecode1)\nDOK-CONNEC-\u2026 | Material number\nR911\u2026\nRexroth Connection Cables\nIndraDrive and IndraDyn | Selection Data | CABLE*INDRV-CAxx-EN-P | 322949\n\n\n[Table 2 on Page 26]\nTitle\nRexroth IndraDrive ... | Kind of documentation | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nMPx-18\nFunctions | Application Manual | MP*-18VRS**-APxx-EN-P | 338673\nMPx-18\nVersion Notes | Release Notes | MP*-18VRS**-RNxx-EN-P | 338658\nMPx-17\nFunctions | Application Manual | MP*-17VRS**-APxx-EN-P | 331236\nMPx-17\nVersion Notes | Release Notes | MP*-17VRS**-RNxx-EN-P | 331588\nMPx-16\nFunctions | Application Manual | MP*-16VRS**-APxx-EN-P | 326767\nMPx-16\nVersion Notes | Release Notes | MP*-16VRS**-RNxx-EN-P | 329272\nMPx-16 to MPx-18\nParameters | Reference Book | GEN1-PARA**-RExx-EN-P | 328651\nMPx-16 to MPx-18\nDiagnostic Messages | Reference Book | GEN1-DIAG**-RExx-EN-P | 326738\nIntegrated Safety Technology\nas of MPx-1x | Application Manual | SI3-**VRS**-APxx-EN-P | 332634\nIntegrated Safety Technology\nas of MPx-1x (Safe Motion) | Application Manual | SI3*SMO-VRS-APxx-EN-P | 338920\nRexroth IndraMotion MLD\nLibraries as of MPx-17 | Reference Book | MLD-SYSLIB2-RExx-EN-P | 332627\nRexroth IndraMotion MLD\nLibraries as of MPx-18 | Reference Book | MLD-SYSLIB3-RExx-EN-P | 338916\n\n\n[Page 27]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 25/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nIntroduction\nTitle Kind of documentation Document typecode1) Material number\nRexroth IndraDrive ... DOK-INDRV*-\u2026 R911\u2026\nRexroth IndraMotion MLD Application Manual MLD2-**VRS*-APxx-EN-P 334351\nas of MPx-17\nRexroth IndraMotion MLD Application Manual MLD3-**VRS*-APRS-EN-P 338914\nas of MPx-18\n1) In the document typecodes, \"xx\" is a wild card for the current edition of\nthe documentation (example: RE02 is the second edition of a Refer\u2010\nence Book)\nTab.1-7: Documentations \u2013 Firmware\n\n[Table 1 on Page 27]\nTitle\nRexroth IndraDrive ... | Kind of documentation | Document typecode1)\nDOK-INDRV*-\u2026 | Material number\nR911\u2026\nRexroth IndraMotion MLD\nas of MPx-17 | Application Manual | MLD2-**VRS*-APxx-EN-P | 334351\nRexroth IndraMotion MLD\nas of MPx-18 | Application Manual | MLD3-**VRS*-APRS-EN-P | 338914\n\n\n[Page 28]\n26/431 Bosch Rexroth AG DOK-INDRV*-GEN1-DIAG**-RE05-EN-P\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\n\n[Page 29]\nDOK-INDRV*-GEN1-DIAG**-RE05-EN-P Bosch Rexroth AG 27/431\nRexroth IndraDrive MPx-16 to MPx-18 Diagnostic Messages\nImportant Directions for Use\n2 Important Directions for Use\n2.1 Appropriate Use\n2.1.1 Introduction\nRexroth products reflect the state-of-the-art in their development and their\nmanufacture.",
+          "score": 0.007692307692307693,
+          "section": "We need the following information to handle your feedback",
+          "dense_score": 0.60581255,
+          "sparse_score": null,
+          "rerank_score": 0.6058125201307114
+        }
+      ],
+      "latency_ms": 10687.138795852661,
+      "metrics": {
+        "found": true,
+        "rank": 6,
+        "mrr": 0.16666666666666666,
+        "precision@1": 0.0,
+        "precision@3": 0.0,
+        "precision@5": 0.0,
+        "precision@10": 1.0,
+        "recall@1": 0.0,
+        "recall@3": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 1.0,
+        "ndcg@1": 0.0,
+        "ndcg@3": 0.0,
+        "ndcg@5": 0.0,
+        "ndcg@10": 0.3562071871080222
+      }
+    },
+    {
+      "question_id": "doc002_q002",
+      "evaluation_mode": "document",
+      "question": "What is the remedy for 'Master does not exchange any cyclic output data' in the EtherNet/IP communication table on Page 187?",
+      "answer": "Check master status. (Page 187, Table: Cause=Master does not exchange any cyclic output data, Remedy=Check master status)",
+      "evidence_snippets": [
+        "Cause=Master does not exchange any cyclic output data, Remedy=Check master status"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "Cause=Master does not exchange any cyclic output data, Remedy=Check master status",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "parameter_extraction",
+      "difficulty": "medium",
+      "page_reference": "Page 187",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "ons are monitored which means that, within the watch\u2010\ndog time, there haven't any new output data been received from the master. Cause Remedy\nMaster does not exchange any cyclic output data Check master status\nEthernet connection aborted Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line Check shielding and routing\nNetwork load too high Switch off unnecessary Ethernet communication; if necessa\u2010\nry, establish separate network for EtherNet/IP\nDeviceNet Only the \"Implicite Message\" is monitored which means that, within the\nwatchdog time, there haven't any new output data been received from the\nmaster.",
+          "score": 0.01422081769701758,
+          "section": "P-0-4075",
+          "dense_score": 0.70003706,
+          "sparse_score": null,
+          "rerank_score": 0.7000370303765365
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "ed by supply unit: \u00ab-\u00bb\nThe axis was switched to operating mode, but the master communication is\nnot yet in cyclic data exchange. Axis control is not yet possible in this status.",
+          "score": 0.014913831197525408,
+          "section": "Remedy",
+          "dense_score": 0.6530558,
+          "sparse_score": null,
+          "rerank_score": 0.6530557119366659
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "Communication phase 0 was set, although drive enable had First remove drive enable and then set communication\nbeen set. phase 0. [Table 1 on Page 146]\nCause | Remedy\nMaster does not exchange any cyclic output data | Check master status\nEthernet connection aborted | Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line | Check shielding and routing\nNetwork load too high | Switch off unnecessary Ethernet communication; if\nnecessary, establish separate network for EtherNet/IP\n\n\n[Table 2 on Page 146]\nCause | Remedy\nMaster does not transmit any node monitoring telegram | Check master status\nBus connection interrupted | Check cable and interface\nEMC problems at transmission line | Check shielding and routing\nBus load too high | Check communication settings (or communication load)\nFaulty bus terminator | Check whether bus terminating resistors have been installed\nat remotest bus nodes\n\n\n[Table 3 on Page 146]\nCause | Remedy\nMaster does not exchange any cyclic output data | Check master status\nBus connection interrupted | Check cable and interface\nEMC problems at transmission line | Check shielding and routing\nFaulty bus terminator | Check whether bus terminating resistors have been installed\nat remotest bus nodes.",
+          "score": 0.012698412698412698,
+          "section": "SERCOS",
+          "dense_score": 0.64909625,
+          "sparse_score": null,
+          "rerank_score": 0.6490962439252592
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "ass1 connections are monitored which means that, within the\nwatchdog time, no new output data has been received from the master. Cause Remedy\nMaster does not exchange any cyclic output data Check master status\nEthernet connection aborted Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line Check shielding and routing\nNetwork load too high Switch off unnecessary Ethernet communication; if\nnecessary, establish separate network for EtherNet/IP\nCANopen According to the kind of node monitoring which has been set, the \"Node\nGuarding request\" (cyclic node monitoring) or the \"heartbeat telegram\" is\nmonitored.",
+          "score": 0.013188844086021506,
+          "section": "The drive generates this error in the following cases",
+          "dense_score": 0.64670205,
+          "sparse_score": null,
+          "rerank_score": 0.646702009445221
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "consumer (drive) monitors the reception of the cyclic data from the pro\u2010\nvider (control unit) by means of a monitoring interval. Cause Remedy\nMaster does not exchange any cyclic output data Check master status\nEthernet connection aborted Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line Check shielding and routing\nNetwork load too high Switch off unnecessary Ethernet communication; if necessa\u2010\nry, establish separate network for PROFINET",
+          "score": 0.01435897435897436,
+          "section": "P-0-4075",
+          "dense_score": 0.64541596,
+          "sparse_score": null,
+          "rerank_score": 0.6454159736820897
+        }
+      ],
+      "latency_ms": 10277.469635009766,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    {
+      "question_id": "doc002_q003",
+      "evaluation_mode": "document",
+      "question": "What is the remedy for 'Bus connection interrupted' in the DeviceNet communication table on Page 187?",
+      "answer": "Check cable and interface. (Page 187, Table: Cause=Bus connection interrupted, Remedy=Check cable and interface)",
+      "evidence_snippets": [
+        "Cause=Bus connection interrupted, Remedy=Check cable and interface"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "Cause=Bus connection interrupted, Remedy=Check cable and interface",
+          "found_in_rank": null,
+          "found_in_filename": null
+        }
+      ],
+      "question_type": "parameter_extraction",
+      "difficulty": "medium",
+      "page_reference": "Page 187",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "Ident N\u00b0: F2835\n\n[Table 1 on Page 275]\nContained in 02VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \n\n\n[Table 2 on Page 275]\nContained in 04VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \n\n\n[Table 3 on Page 275]\nContained in 06VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb\n\n\n[Table 4 on Page 275]\nContained in 08VRS: | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb | \u00ab-\u00bb\n\n\n[Table 5 on Page 275]\nCause | Remedy\nDue to wiring or control error, contact \"ZKS\" [\"DC bus short\ncircuit\"] (X32.8) or contact \"Netz AUS\" [\"mains OFF\"] (X32.6/\nX32.7) was opened while contact \"Netz EIN\" [\"mains ON\"]\n(X32.4/X32.5) still had been close.",
+          "score": 0.00819672131147541,
+          "section": "F2835 - Attributes Display",
+          "dense_score": 0.6759391,
+          "sparse_score": null,
+          "rerank_score": 0.6759391327361224
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "lding and routing\nFaulty bus terminator | Check whether bus terminating resistors have been installed\nat most distant bus nodes. At all other nodes, bus terminat\u2010\ning resistors must not have been installed\n\n\n[Table 3 on Page 188]\nCause | Remedy\nMaster does not exchange any cyclic output data | Check master status\nEthernet connection aborted | Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line | Check shielding and routing\nNetwork load too high | Switch off unnecessary Ethernet communication; if necessa\u2010\nry, establish separate network for PROFINET\n\n\n[Table 4 on Page 188]\nCause | Remedy\nCommunication phase 0 was set, although drive enable had\nbeen set.",
+          "score": 0.008064516129032258,
+          "section": "SERCOS",
+          "dense_score": 0.632259,
+          "sparse_score": null,
+          "rerank_score": 0.6322589615119715
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "established\" (CON). Field Bus Meaning of the Diagnostic Message\nPROFINET The connection to the controller has been established. EtherNet/IP The connection to the controller has been established. Tab.7-6: Overview of the Diagnostic Message \"Connection established\" (CON)\nfor the Various Field Busses\nSee also Functional Description of firmware \"Device Control and State\nMachines\". A0024 - Attributes Display: CON\nDiagnostic no. : A0024\nDiagnostic no.",
+          "score": 0.007936507936507936,
+          "section": "Remedy",
+          "dense_score": 0.62274027,
+          "sparse_score": null,
+          "rerank_score": 0.6227403095286174
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "shielding and routing\nFaulty bus terminator | Check whether bus terminating resistors have been installed\nat remotest bus nodes. Bus terminating resistors are not\nallowed to be installed at any of the other nodes\n\n\n[Table 4 on Page 146]\nCause | Remedy\nMaster does not exchange any cyclic output data | Check master status\nEthernet connection aborted | Check Ethernet cable and, if necessary, switch\nEMC problems at transmission line | Check shielding and routing\nNetwork load too high | Switch off unnecessary Ethernet communication; if\nnecessary, establish separate network for PROFINET\n\n\n[Table 5 on Page 146]\nCause | Remedy\nCommunication phase 0 was set, although drive enable had\nbeen set.",
+          "score": 0.0078125,
+          "section": "SERCOS",
+          "dense_score": 0.6204768,
+          "sparse_score": null,
+          "rerank_score": 0.6204767924251492
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "are incorrect. The error can only be cleared, when the signals are error-free or\nthe module bus communication was switched off. Cause Remedy\nFailure of control voltage supply of a module bus node while Supply all devices of a \"drive system\" with control voltage\n\"drive system\" is ready for power output or in operation\nDisturbance on module bus Identify and remove sources of disturbance\nIncorrect signal timing on module bus Identify and replace faulty device\nModule bus cable defective Identify and replace defective module bus cable; replace de\u2010\nvice, if necessary\n\n[Table 1 on Page 254]\nContained in 02VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 2 on Page 254]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 3 on Page 254]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 4 on Page 254]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 254]\nCause | Remedy\nFailure in power supply or overload of power supply.",
+          "score": 0.007692307692307693,
+          "section": "Note",
+          "dense_score": 0.6200112,
+          "sparse_score": null,
+          "rerank_score": 0.6200112592754146
+        }
+      ],
+      "latency_ms": 10382.069110870361,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    {
+      "question_id": "doc002_q004",
+      "evaluation_mode": "document",
+      "question": "What must be done if the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', and which command is used to clear the error?",
+      "answer": "If the velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameter setting. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", velocity threshold parameter\u2010ized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"",
+        "Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary."
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In special mode \"safe motion\", velocity threshold parameter\u2010ized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"",
+          "found_in_rank": 2,
+          "found_in_filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+        },
+        {
+          "snippet": "Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "found_in_rank": 2,
+          "found_in_filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf"
+        }
+      ],
+      "question_type": "relationship",
+      "difficulty": "hard",
+      "page_reference": "Page 165",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "D\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nUp to MPx06, the name of this diagnostic message was \"F7013\nVelocity threshold exceeded\". In the special mode \"safe motion\", a parameterized velocity threshold was\nexceeded. Cause Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010 Check command value input and adjust it according to pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary.",
+          "score": 0.016133229247983348,
+          "section": "Position window",
+          "dense_score": 0.7741981,
+          "sparse_score": null,
+          "rerank_score": 0.7741981504067216
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113270.0.2\" is exceeded,\nthe error F7020 is generated. [Table 1 on Page 121]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold\nparameterized in\n\u25cf P\u20110\u20113290.1.2, SMO: Safely-limited speed 1\nor\n\u25cf P\u20110\u20113290.2.2, SMO: Safely-limited speed 2\nor\n\u25cf ...\n\u25cf P\u20110\u20113290.16.2, SMO: Safely-limited speed 16\nparameterized velocity threshold exceeded | Check command value input and adjust it according to\nparameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.016129032258064516,
+          "section": "Position window",
+          "dense_score": 0.7636657,
+          "sparse_score": null,
+          "rerank_score": 0.7636656501239261
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf \"P\u20110\u20113254, Safely-limited speed 2\" Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded\nF7013 - Attributes Display: F7013\nIdent N\u00b0: F7013\n8.3.6 F7014 Timeout safely-monitored transient oscillation\nAllocation Contained in 02VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\n\n[Table 1 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\" or\n\u25cf \"P\u20110\u20113252, Safely-monitored position 2, negative\"\nwas exceeded.",
+          "score": 0.007936507936507936,
+          "section": "Position window",
+          "dense_score": 0.7514217,
+          "sparse_score": null,
+          "rerank_score": 0.7514216726313633
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "of global safety technology functions\"), the drive in\nnormal operation and in special mode monitors the current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113234, Safe maximum\nspeed\" is exceeded, the error F7020 is generated. Cause Remedy\nVelocity threshold was incorrectly parameterized Check and, if necessary, increase parameter setting of\n\"P\u20110\u20113234, Safe maximum speed\"\nIncorrect command value input; i.e.",
+          "score": 0.015504807692307693,
+          "section": "Position window",
+          "dense_score": 0.7414241,
+          "sparse_score": null,
+          "rerank_score": 0.7414242447640987
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "ing\n12.10 Displays F7030 to F7031\nIf an error code is not contained in the documentation, please contact our\nservice department. [Table 1 on Page 579]\nDisplay | E-code\nchannel 1\n(P3219 [0]) | E-code\nchannel 2\n(P3219\n[1]) | Safety technology error\nF7013 | 7 | 1 | P-0-3244 exceeded in special mode \"safe motion 1\"\n | 12 | 11 | P-0-3254 exceeded in special mode \"safe motion 2\"\n | 17 | 18 | P-0-3264 exceeded in special mode \"safe motion 3\"\n | 20 | 22 | P-0-3274 exceeded in special mode \"safe motion 4\"\nF7014 | 661 | 699 | P-0-3247 exceeded longer than P-0-3248 in special mode \"safe motion 1\"\n | 662 | 700 | P-0-3257 exceeded longer than P-0-3258 in special mode \"safe motion 2\"\n | 663 | 701 | P-0-3267 exceeded longer than P-0-3268 in special mode \"safe motion 3\"\n | 664 | 702 | P-0-3277 exceeded longer than P-0-3278 in special mode \"safe motion 4\"\nF7020 | 94 | 133 | P-0-3234 was exceeded\n | 731 | 782 | Safely-limited position (SLP): P-0-3234 exceeded.",
+          "score": 0.015504807692307693,
+          "section": "Configuration error",
+          "dense_score": 0.71405065,
+          "sparse_score": null,
+          "rerank_score": 0.7140507378136113
+        }
+      ],
+      "latency_ms": 10315.96326828003,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    {
+      "question_id": "doc002_q005",
+      "evaluation_mode": "document",
+      "question": "What is the procedure for handling an exceeded position limit in 'P-0-3242, Safely-monitored position 1, negative' during special mode 'safe motion', and what command must be executed to clear the error?",
+      "answer": "If the position limit parameterized in 'P-0-3242, Safely-monitored position 1, negative' is exceeded during special mode 'safe motion', the command value input must be checked and adjusted according to the parameterized position limit values. If necessary, the parameter setting should be changed. Afterwards, the command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and set drive enable again.",
+      "evidence_snippets": [
+        "In special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\"",
+        "Check command value input and adjust it according to para\u2010\nmeterized position limit values"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\"",
+          "found_in_rank": 5,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        },
+        {
+          "snippet": "Check command value input and adjust it according to para\u2010\nmeterized position limit values",
+          "found_in_rank": 4,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        }
+      ],
+      "question_type": "relationship",
+      "difficulty": "hard",
+      "page_reference": "Page 165",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "l mode \"safe motion 4\"\nF7020 | 94 | 133 | P-0-3234 was exceeded\n | 731 | 782 | Safely-limited position (SLP): P-0-3234 exceeded. When safe reference is not avail\u2010\nable, the drive may only be moved at a maximum of 20% of P-0-3234\nF7021 | 313 | 177 | P-0-3235 was exceeded\n | 314 | 178 | P-0-3236 was exceeded\n | 315, 327 |  | \"Safely-limited position\" was exceeded: Tracked threshold was exceeded by more\nthan P-0-3232\nPosition polarity, inverted \u2192 Safely-limited position, positive\nOtherwise \u2192 Safely-limited position, negative\n | 316, 328 |  | \"Safely-limited position\" was exceeded: Tracked threshold was exceeded by more\nthan P-0-3232\nPosition polarity, inverted \u2192 Safely-limited position, negative\nOtherwise \u2192 Safely-limited position, positive\n | 319, 321 |  | \"Safely-limited position\" was exceeded: Command values point to forbidden direc\u2010\ntion\nPosition polarity, inverted \u2192 Safely-limited position, positive\nOtherwise \u2192 Safely-limited position, negative\n | 320, 322 |  | \"Safely-limited position\" was exceeded: Command values point to forbidden direc\u2010\ntion\nPosition polarity, inverted \u2192 Safely-limited position, negative\nOtherwise \u2192 Safely-limited position, positive\nF7022 | 431 |  | Missing feedback or brake controlled with drive enable missing\n\n\n[Page 580]\n578/619 Bosch Rexroth AG DOK-INDRV*-GEN-**VRS**-WA08-EN-P\nRexroth IndraDrive MPx-02 to MPx-08 and HMV\nExtended Diagnosis (P-0-3219) as of MPx07\nE-code\nE-code\nchannel 2\nDisplay channel 1 Safety technology error\n(P3219\n(P3219 [0])\n[1])\n194 P\u20110\u20110048 > P\u20110\u20113233 in \"Safe stop 2\"\nOperation mode position control: Derived position command value > P\u20110\u20113233 \"Safe\n197\nF7030 stop 2\"\n97, 98,\n4, 196 P-0-3230 exceeded in safety technology function \"Safe stop 2\"\n265, 266\n5 576 P-0-3232 exceeded in negative direction in special mode \"safe motion\"\n6 577 P-0-3232 exceeded in positive direction in special mode \"safe motion\"\nPositive monitoring of direction of motion has detected motion in negative direction\n588\n(> P-0-3232)\nNegative monitoring of direction of motion has detected motion in positive direction\n589\n(> P-0-3232)\n650 679 P-0-3232 exceeded in negative direction in normal operation\n651 680 P-0-3232 exceeded in positive direction in normal operation\nF7031 101 P-0-3232 exceeded in positive direction in special mode \"safe motion 4\"\n102 P-0-3232 exceeded in negative direction in special mode \"safe motion 4\"\n103 P-0-3232 exceeded in positive direction in special mode \"safe motion 3\"\n104 P-0-3232 exceeded in negative direction in special mode \"safe motion 3\"\n105 P-0-3232 exceeded in positive direction in special mode \"safe motion 2\"\n106 P-0-3232 exceeded in negative direction in special mode \"safe motion 2\"\n107 P-0-3232 exceeded in positive direction in special mode \"safe motion 1\"\n108 P-0-3232 exceeded in negative direction in special mode \"safe motion 1\"\n\n[Table 1 on Page 580]\nDisplay | E-code\nchannel 1\n(P3219 [0]) | E-code\nchannel 2\n(P3219\n[1]) | Safety technology error\nF7030 | 194 |  | P\u20110\u20110048 > P\u20110\u20113233 in \"Safe stop 2\"\n | 197 |  | Operation mode position control: Derived position command value > P\u20110\u20113233 \"Safe\nstop 2\"\n | 4, 196 | 97, 98,\n265, 266 | P-0-3230 exceeded in safety technology function \"Safe stop 2\"\nF7031 | 5 | 576 | P-0-3232 exceeded in negative direction in special mode \"safe motion\"\n | 6 | 577 | P-0-3232 exceeded in positive direction in special mode \"safe motion\"\n | 588 |  | Positive monitoring of direction of motion has detected motion in negative direction\n(> P-0-3232)\n | 589 |  | Negative monitoring of direction of motion has detected motion in positive direction\n(> P-0-3232)\n | 650 | 679 | P-0-3232 exceeded in negative direction in normal operation\n | 651 | 680 | P-0-3232 exceeded in positive direction in normal operation\n |  | 101 | P-0-3232 exceeded in positive direction in special mode \"safe motion 4\"\n |  | 102 | P-0-3232 exceeded in negative direction in special mode \"safe motion 4\"\n |  | 103 | P-0-3232 exceeded in positive direction in special mode \"safe motion 3\"\n |  | 104 | P-0-3232 exceeded in negative direction in special mode \"safe motion 3\"\n |  | 105 | P-0-3232 exceeded in positive direction in special mode \"safe motion 2\"\n |  | 106 | P-0-3232 exceeded in negative direction in special mode \"safe motion 2\"\n |  | 107 | P-0-3232 exceeded in positive direction in special mode \"safe motion 1\"\n |  | 108 | P-0-3232 exceeded in negative direction in special mode \"safe motion 1\"\n\n\n[Page 581]\nDOK-INDRV*-GEN-**VRS**-WA08-EN-P Bosch Rexroth AG 579/619\nRexroth IndraDrive MPx-02 to MPx-08 and HMV\nExtended Diagnosis (P-0-3219) as of MPx07\n12.11 Displays F7040 to F7043\nIf an error code is not contained in the documentation, please contact our\nservice department.",
+          "score": 0.015339578454332554,
+          "section": "Configuration error",
+          "dense_score": 0.7707852,
+          "sparse_score": null,
+          "rerank_score": 0.7707851985529881
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "an P-0-3278 in special mode \"safe motion 4\"\n94 133 P-0-3234 was exceeded\nF7020\nSafely-limited position (SLP): P-0-3234 exceeded. When safe reference is not avail\u2010\n731 782\nable, the drive may only be moved at a maximum of 20% of P-0-3234\n313 177 P-0-3235 was exceeded\n314 178 P-0-3236 was exceeded\n\"Safely-limited position\" was exceeded: Tracked threshold was exceeded by more\nthan P-0-3232\n315, 327\nPosition polarity, inverted \u2192 Safely-limited position, positive\nOtherwise \u2192 Safely-limited position, negative\n\"Safely-limited position\" was exceeded: Tracked threshold was exceeded by more\nthan P-0-3232\n316, 328\nPosition polarity, inverted \u2192 Safely-limited position, negative\nF7021\nOtherwise \u2192 Safely-limited position, positive\n\"Safely-limited position\" was exceeded: Command values point to forbidden direc\u2010\ntion\n319, 321\nPosition polarity, inverted \u2192 Safely-limited position, positive\nOtherwise \u2192 Safely-limited position, negative\n\"Safely-limited position\" was exceeded: Command values point to forbidden direc\u2010\ntion\n320, 322\nPosition polarity, inverted \u2192 Safely-limited position, negative\nOtherwise \u2192 Safely-limited position, positive\nF7022 431 Missing feedback or brake controlled with drive enable missing\n12.10 Displays F7030 to F7031\nIf an error code is not contained in the documentation, please contact our\nservice department.",
+          "score": 0.014913831197525408,
+          "section": "Configuration error",
+          "dense_score": 0.74634737,
+          "sparse_score": null,
+          "rerank_score": 0.7463473960861777
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "ing\n11.10 Displays F7030 to F7031\nIf an error code is not contained in the documentation, please contact our\nservice department. [Table 1 on Page 554]\nDisplay | E-code\nchannel 1\n(P3219 [0]) | E-code\nchannel 2\n(P3219\n[1]) | Safety technology error\nF7012 | 11 | 89 | P-0-3242 exceeded in \"special mode safety related motion 1\"\n | 16 | 92 | P-0-3252 exceeded in \"special mode safety related motion 2\"\nF7013 | 7 | 1 | P-0-3244 exceeded in \"special mode safety related motion 1\"\n | 12 | 11 | P-0-3254 exceeded in \"special mode safety related motion 2\"\n | 17 | 18 | P-0-3264 exceeded in \"special mode safety related motion 3\"\n | 20 | 22 | P-0-3274 exceeded in \"special mode safety related motion 4\"\nF7020 | 94 | 133 | P-0-3234 was exceeded\nF7021 | 313 | 177 | P-0-3235 was exceeded\n | 314 | 178 | P-0-3236 was exceeded\n | 315, 327 |  | Safety related end position was exceeded: Tracked threshold was exceeded by\nmore than P-0-3232\nPosition polarity, inverted \u2192 safety related end position, positive\nOtherwise \u2192 safety related end position, negative\n | 316, 328 |  | Safety related end position was exceeded: Tracked threshold was exceeded by\nmore than P-0-3232\nPosition polarity, inverted \u2192 safety related end position, negative\nOtherwise \u2192 safety related end position, positive\n | 319, 321 |  | Safety related end position was exceeded: Command values point to forbidden di\u2010\nrection\nPosition polarity, inverted \u2192 safety related end position, positive\nOtherwise \u2192 safety related end position, negative\n | 320, 322 |  | Safety related end position was exceeded: Command values point to forbidden di\u2010\nrection\nPosition polarity, inverted \u2192 safety related end position, negative\nOtherwise \u2192 safety related end position, positive\nF7022 | 431 |  | Missing feedback or brake controlled with drive enable missing\n\n\n[Page 555]\nDOK-INDRV*-GEN-**VRS**-WA08-EN-P Bosch Rexroth AG 553/619\nRexroth IndraDrive MPx-02 to MPx-08 and HMV\nExtended Diagnosis (P-0-3219)\nE-code\nE-code\nchannel 2\nDisplay channel 1 Safety technology error\n(P3219\n(P3219 [0])\n[1])\n194 P-0-0048 > P-0-3233 in safety related operational stop\nOperating mode position control: Derived position command value > P-0-3233 in\n197\nF7030 safety related operational stop\n97, 98,\n4, 196 P-0-3230 exceeded in safety technology function \"safety related operational stop\"\n265, 266\n5 576 P-0-3232 exceeded in negative direction in \"special mode safety related motion\"\n6 577 P-0-3232 exceeded in positive direction in \"special mode safety related motion\"\nPositive monitoring of direction of motion has detected motion in negative direction\n588\n(> P-0-3232)\nNegative monitoring of direction of motion has detected motion in positive direction\n589\n(> P-0-3232)\n101 P-0-3232 exceeded in positive direction in \"special mode safety related motion 4\"\nF7031 102 P-0-3232 exceeded in negative direction in \"special mode safety related motion 4\"\n103 P-0-3232 exceeded in positive direction in \"special mode safety related motion 3\"\n104 P-0-3232 exceeded in negative direction in \"special mode safety related motion 3\"\n105 P-0-3232 exceeded in positive direction in \"special mode safety related motion 2\"\n106 P-0-3232 exceeded in negative direction in \"special mode safety related motion 2\"\n107 P-0-3232 exceeded in positive direction in \"special mode safety related motion 1\"\n108 P-0-3232 exceeded in negative direction in \"special mode safety related motion 1\"\n11.11 Displays F7040 to F7043\nIf an error code is not contained in the documentation, please contact our\nservice department.",
+          "score": 0.014346764346764346,
+          "section": "Safety related braking and holding system",
+          "dense_score": 0.737931,
+          "sparse_score": null,
+          "rerank_score": 0.7379309946134064
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "Px06) or \"Safely-monitored position\" (as of\nMPx07), the parameterized position limit value was exceeded in positive di\u2010\nrection. Cause Remedy\nIn safety function \"special mode motion\", value parameter\u2010 Check command value input and adjust it according to para\u2010\nized in parameter meterized position limit values\n\u25cf \"P\u20110\u20113241, Safely-monitored position 1, positive\" or \u2013 or \u2013\n\u25cf \"P\u20110\u20113251, Safely-monitored position 2, positive\" was Check parameter setting and change it, if necessary.",
+          "score": 0.012863005050505052,
+          "section": "Position window",
+          "dense_score": 0.73051775,
+          "sparse_score": null,
+          "rerank_score": 0.7305177739918522
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "MPx06) or \"Safely-monitored\nposition\" (as of MPx07), the parameterized position limit value was exceeded\nin negative direction. [Table 1 on Page 164]\nContained in 02VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 2 on Page 164]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 3 on Page 164]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 4 on Page 164]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 164]\nCause | Remedy\nIn safety function \"special mode motion\", value parameter\u2010\nized in parameter\n\u25cf \"P\u20110\u20113241, Safely-monitored position 1, positive\" or\n\u25cf \"P\u20110\u20113251, Safely-monitored position 2, positive\" was\nexceeded | Check command value input and adjust it according to para\u2010\nmeterized position limit values\n\u2013 or \u2013\nCheck parameter setting and change it, if necessary.",
+          "score": 0.007692307692307693,
+          "section": "Position window",
+          "dense_score": 0.7302551,
+          "sparse_score": null,
+          "rerank_score": 0.7302551016347549
+        }
+      ],
+      "latency_ms": 10498.022079467773,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    {
+      "question_id": "doc002_q006",
+      "evaluation_mode": "document",
+      "question": "In special mode 'safe motion', when a velocity threshold parameterized in 'P-0-3244, Safely-limited speed 1' or similar parameters is exceeded, what specific command must be executed to clear the error and re-enable the drive? Which requirement ID references this behavior?",
+      "answer": "The command 'S-0-0099, C0500 Reset class 1 diagnostics' must be started to clear the error and then set drive enable again. This is referenced in [Page 165] under the Cause and Remedy table for F7013 Safely-limited speed exceeded.",
+      "evidence_snippets": [
+        "In special mode 'safe motion', velocity threshold parameterized in",
+        "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again"
+      ],
+      "evidence_match": [
+        {
+          "snippet": "In special mode 'safe motion', velocity threshold parameterized in",
+          "found_in_rank": 1,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        },
+        {
+          "snippet": "Afterwards start command \"S-0-0099, C0500 Reset class 1 diagnostics\" in order to clear error and then set drive enable again",
+          "found_in_rank": 2,
+          "found_in_filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+        }
+      ],
+      "question_type": "requirement_tracing",
+      "difficulty": "hardest",
+      "page_reference": "Page 165",
+      "ground_truth": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+      "retrieved_documents": [
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+        "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+        "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf"
+      ],
+      "retrieved_chunks": [
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "D\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\nUp to MPx06, the name of this diagnostic message was \"F7013\nVelocity threshold exceeded\". In the special mode \"safe motion\", a parameterized velocity threshold was\nexceeded. Cause Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010 Check command value input and adjust it according to pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary.",
+          "score": 0.015889029003783105,
+          "section": "Position window",
+          "dense_score": 0.7746568,
+          "sparse_score": null,
+          "rerank_score": 0.7746567742058049
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "pa\u2010\nized in rameter setting\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\" \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf \"P\u20110\u20113254, Safely-limited speed 2\" Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded\nF7013 - Attributes Display: F7013\nIdent N\u00b0: F7013\n8.3.6 F7014 Timeout safely-monitored transient oscillation\nAllocation Contained in 02VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 03VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 04VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 05VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb\nContained in 06VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 07VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nContained in 08VRS: \u00abMPB\u00bb \u00abMPH\u00bb \u00abMPD\u00bb \u00abMPC\u00bb\nSupported by supply unit: \u00ab-\u00bb\n\n[Table 1 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", value parameterized in\n\u25cf \"P\u20110\u20113242, Safely-monitored position 1, negative\" or\n\u25cf \"P\u20110\u20113252, Safely-monitored position 2, negative\"\nwas exceeded.",
+          "score": 0.008064516129032258,
+          "section": "Position window",
+          "dense_score": 0.7664028,
+          "sparse_score": null,
+          "rerank_score": 0.7664028225471734
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "cessary. Then start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nagain. [Table 2 on Page 165]\nContained in 02VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 3 on Page 165]\nContained in 04VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \n\n\n[Table 4 on Page 165]\nContained in 06VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 5 on Page 165]\nContained in 08VRS: | \u00abMPB\u00bb | \u00abMPH\u00bb | \u00abMPD\u00bb | \u00abMPC\u00bb\n\n\n[Table 6 on Page 165]\nCause | Remedy\nIn special mode \"safe motion\", velocity threshold parameter\u2010\nized in\n\u25cf \"P\u20110\u20113244, Safely-limited speed 1\"\nor\n\u25cf \"P\u20110\u20113254, Safely-limited speed 2\"\nor\n\u25cf \"P\u20110\u20113264, Safely-limited speed 3\"\nor\n\u25cf \"P\u20110\u20113274, Safely-limited speed 4\"\nwas exceeded | Check command value input and adjust it according to pa\u2010\nrameter setting\n\u2011 or \u2011\nCheck parameter setting and change it, if necessary.",
+          "score": 0.007936507936507936,
+          "section": "Position window",
+          "dense_score": 0.76442635,
+          "sparse_score": null,
+          "rerank_score": 0.7644264087655305
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf",
+          "content": "in parameter setting\n\u25cf P\u20110\u20113290.1.2, SMO: Safely-limited speed 1 \u2011 or \u2011\nor Check parameter setting and change it, if necessary. \u25cf P\u20110\u20113290.2.2, SMO: Safely-limited speed 2 Afterwards start command \"S\u20110\u20110099, C0500 Reset class 1\ndiagnostics\" in order to clear error and then set drive enable\nor\nagain\n\u25cf ...\n\u25cf P\u20110\u20113290.16.2, SMO: Safely-limited speed 16\nparameterized velocity threshold exceeded\nF7013 - Detailed diagnostics 0053000E\n0054000E\nF7013 - Attributes Display: F7013\nDiagnostic no. : F7013\nDiagnostic no.",
+          "score": 0.01244212962962963,
+          "section": "Position window",
+          "dense_score": 0.7510577,
+          "sparse_score": null,
+          "rerank_score": 0.7510577339649754
+        },
+        {
+          "filename": "TroubleShooting Manual_IndraDrive upto MPx08 [Ed 08].pdf",
+          "content": "of global safety technology functions\"), the drive in\nnormal operation and in special mode monitors the current actual velocity. When the velocity threshold parameterized in \"P\u20110\u20113234, Safe maximum\nspeed\" is exceeded, the error F7020 is generated. Cause Remedy\nVelocity threshold was incorrectly parameterized Check and, if necessary, increase parameter setting of\n\"P\u20110\u20113234, Safe maximum speed\"\nIncorrect command value input; i.e.",
+          "score": 0.015154994259471873,
+          "section": "Position window",
+          "dense_score": 0.74717546,
+          "sparse_score": null,
+          "rerank_score": 0.7471755725353095
+        }
+      ],
+      "latency_ms": 10889.511585235596,
+      "metrics": {
+        "found": true,
+        "rank": 1,
+        "mrr": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 1.0,
+        "precision@5": 1.0,
+        "precision@10": 1.0,
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@1": 1.0,
+        "ndcg@3": 1.0,
+        "ndcg@5": 1.0,
+        "ndcg@10": 1.0
+      }
+    }
+  ]
+}

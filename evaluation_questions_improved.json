@@ -1,0 +1,56 @@
+{
+  "dataset_info": {
+    "total_documents": 2,
+    "total_questions": 2,
+    "failed_documents": 0,
+    "generation_date": "2026-02-16 14:30:45",
+    "model_used": "ollama-qwen2.5:72b",
+    "questions_per_document": 1,
+    "dataset_path": "/home/olj3kor/praveen/RAG_work/DATASET/",
+    "chunk_size": 12000,
+    "chunk_overlap": 2000,
+    "question_statistics": {
+      "by_type": {
+        "multi-hop": 2
+      },
+      "by_difficulty": {
+        "medium": 2
+      },
+      "multi_hop_percentage": 100.0,
+      "avg_answer_length": 444,
+      "questions_with_evidence": 2
+    }
+  },
+  "questions": [
+    {
+      "question": "What is the purpose of the ARTI API in the context of the AUTOSAR Adaptive Platform, and how does it differ from other APIs used by application engineers?",
+      "answer": "The ARTI API is designed to provide a low-level interface for tracing tasks and processes within the operating system. It aims to have minimal impact on the runtime behavior of the application and is primarily used by stack and trace tool vendors to record timing information, which can be used to analyze timing requirements such as CPU time, deadlines, and periodicity accuracy. Unlike other APIs, it is not intended for use by application engineers.",
+      "question_type": "multi-hop",
+      "difficulty": "medium",
+      "reasoning_steps": "The purpose of the ARTI API is derived from its low-level nature and minimal impact on runtime behavior, as stated in section 1.1. The difference from other APIs used by application engineers is explicitly mentioned in section 1.2.",
+      "page_reference": "Pages 5-6",
+      "evidence_snippets": [
+        "The goal is to provide an API that can be used at a very low level to trace tasks and processes. Itisataverylowleveltohavenoorminimalimpactontheruntimebehavior of the application.",
+        "The API is not intended to be used by an application engineer."
+      ],
+      "id": "doc001_q001",
+      "source_document": "Technical Report on Operating System Tracing Interface.pdf"
+    },
+    {
+      "question": "How does the Crypto Service Manager (CSM) facilitate key handling in the context of job processing, and what are the differences between synchronous and asynchronous modes?",
+      "answer": "The Crypto Service Manager (CSM) facilitates key handling by allowing keys to be referenced by jobs or key management functions. In synchronous mode, a job is processed immediately when a corresponding function is called, and the result is available when the function returns. In contrast, in asynchronous mode, the job is not processed immediately; instead, the caller is informed via a callback function when the job has been finished.",
+      "question_type": "multi-hop",
+      "difficulty": "medium",
+      "reasoning_steps": "The question requires understanding how CSM handles keys (from Page 6) and the differences between synchronous and asynchronous processing modes (also from Page 6).",
+      "page_reference": "Page 6",
+      "evidence_snippets": [
+        "AkeycanbereferencedbyajoborbyakeymanagementfunctionintheCSM.Inthe CryptoDriver, the key refers aspecifickeytype.",
+        "Synchronous: Thejobisprocessedimmediatelywhencallinga correspondingfunction. Whenthefunctionreturns,aresult willbeavailable.",
+        "Asynchronous: Thejobisnotprocessedimmediatelywhencallinga correspondingfunction. Usually,thecallerisinformedviaa callbackfunctionwhenthejobhasbeenfinished."
+      ],
+      "id": "doc002_q001",
+      "source_document": "Utilization of Crypto Services.pdf"
+    }
+  ],
+  "failed_documents": []
+}

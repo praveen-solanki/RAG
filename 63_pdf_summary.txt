@@ -1,0 +1,142 @@
+
+====================================================================================================
+COMPREHENSIVE EVALUATION RESULTS
+====================================================================================================
+
+📊 OVERVIEW:
+   Evaluation Mode: DOCUMENT
+   Total Questions: 95
+   Total Time: 15.20 minutes
+   Avg Time/Question: 9.60 seconds
+   Timestamp: 2026-03-03 21:19:18
+
+----------------------------------------------------------------------------------------------------
+OVERALL PERFORMANCE
+----------------------------------------------------------------------------------------------------
+
+✅ SUCCESS RATE: 91.58% (87/95)
+
+🎯 MEAN RECIPROCAL RANK: 0.7653
+
+📍 PRECISION @ K:
+   P@ 1: 0.6842 ± 0.4648 (min: 0.0000, max: 1.0000)
+   P@ 3: 0.8421 ± 0.3646 (min: 0.0000, max: 1.0000)
+   P@ 5: 0.8737 ± 0.3322 (min: 0.0000, max: 1.0000)
+   P@10: 0.9158 ± 0.2777 (min: 0.0000, max: 1.0000)
+
+📊 NDCG @ K:
+   NDCG@ 1: 0.6842
+   NDCG@ 3: 0.7756
+   NDCG@ 5: 0.7882
+   NDCG@10: 0.8021
+
+----------------------------------------------------------------------------------------------------
+LATENCY STATISTICS
+----------------------------------------------------------------------------------------------------
+
+   Mean:   8955.13 ms
+   Median: 9511.08 ms
+   Std:    1297.17 ms
+   Min:    7025.55 ms
+   Max:    14008.33 ms
+   P95:    9822.24 ms
+   P99:    12595.99 ms
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY QUESTION TYPE
+----------------------------------------------------------------------------------------------------
+
+Type               Count    Success        MRR        P@5
+----------------------------------------------------------------------------------------------------
+causal                 4   100.00%     0.8333     1.0000
+comparison            12   100.00%     0.9583     1.0000
+cross-page             3   100.00%     1.0000     1.0000
+definition             9   100.00%     0.9444     1.0000
+definition|causal        2   100.00%     1.0000     1.0000
+definition|multi-hop        2   100.00%     1.0000     1.0000
+list                   4    50.00%     0.3333     0.5000
+list|causal            2    50.00%     0.0625     0.0000
+list|numerical         1   100.00%     0.5000     1.0000
+lookup                 2   100.00%     0.1714     0.5000
+multi-hop             38    89.47%     0.7277     0.8421
+multi-hop|definition        1     0.00%     0.0000     0.0000
+parameter_extraction        4   100.00%     0.8333     1.0000
+relationship           4   100.00%     0.8750     1.0000
+requirement_tracing        2   100.00%     0.6667     1.0000
+single-hop             5   100.00%     0.8500     1.0000
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY DIFFICULTY
+----------------------------------------------------------------------------------------------------
+
+Difficulty         Count    Success        MRR        P@5
+----------------------------------------------------------------------------------------------------
+easy                   9    88.89%     0.5474     0.7778
+hard                  11    90.91%     0.8030     0.9091
+hardest                2   100.00%     0.6667     1.0000
+medium                73    91.78%     0.7892     0.8767
+
+----------------------------------------------------------------------------------------------------
+PERFORMANCE BY DOCUMENT
+----------------------------------------------------------------------------------------------------
+
+Document                                              Qs    Success        MRR
+----------------------------------------------------------------------------------------------------
+Technical Report on Operating System Tracing In...     3   100.00%     0.8333
+General Specification of Transformers.pdf             10   100.00%     0.9500
+Requirements on Operating System Interface.pdf         4   100.00%     1.0000
+AUTOSAR Layered Software Architecture.pdf             10   100.00%     0.7411
+Explanation of Service-Oriented Vehicle Diagnos...     9   100.00%     0.9444
+TroubleShooting Manual_IndraCs upto MPx18Vrs [E...     6   100.00%     0.5611
+TroubleShooting Manual_IndraDrive upto MPx08 [E...     6   100.00%     0.8571
+Specification of Raw Data Stream.pdf                  10    90.00%     0.7667
+Adaptive Platform Machine Configuration.pdf           10    90.00%     0.9000
+Specification of Firewall for Adaptive Platform...    10    80.00%     0.8000
+Utilization of Crypto Services.pdf                     9    77.78%     0.5833
+Explanation of Sensor Interfaces.pdf                   8    75.00%     0.2958
+
+----------------------------------------------------------------------------------------------------
+FAILURE ANALYSIS
+----------------------------------------------------------------------------------------------------
+
+   Total Failures: 8 (8.42%)
+
+   Failures by Type:
+      multi-hop: 4
+      list: 2
+      multi-hop|definition: 1
+      list|causal: 1
+
+   Failures by Difficulty:
+      medium: 6
+      easy: 1
+      hard: 1
+
+   Sample Failed Queries:
+
+   1. Question: What significant change was made to the document in the R22-11 release, and how does it relate to security?
+      Expected: Utilization of Crypto Services.pdf
+      Got Top-3: AUTOSAR Layered Software Architecture.pdf, AUTOSAR_SWS_ChineseV2XSecurity.pdf, AUTOSAR Layered Software Architecture.pdf
+      Type: multi-hop, Difficulty: medium
+
+   2. Question: List the input documents and related standards and norms that are referenced for the utilization of crypto services.
+      Expected: Utilization of Crypto Services.pdf
+      Got Top-3: AUTOSAR_SRS_OS.pdf, TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf, AUTOSAR_SRS_OS.pdf
+      Type: list, Difficulty: easy
+
+   3. Question: What mechanisms can be used to achieve secure communication in the Raw Data Streaming Interface, and where are these security functions configured?
+      Expected: Specification of Raw Data Stream.pdf
+      Got Top-3: AUTOSAR Layered Software Architecture.pdf, TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf, AUTOSAR_SWS_COM.pdf
+      Type: multi-hop|definition, Difficulty: medium
+
+   4. Question: How does the FC Firewall use the EventReporter interface, and what is its significance in terms of security events?
+      Expected: Specification of Firewall for Adaptive Platform.pdf
+      Got Top-3: AUTOSAR_EXP_PlatformDesign.pdf, TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf, AUTOSAR_SWS_COM.pdf
+      Type: multi-hop, Difficulty: medium
+
+   5. Question: How does the FC Firewall manage network packet patterns and what happens in case of a pattern match or no-match scenario?
+      Expected: Specification of Firewall for Adaptive Platform.pdf
+      Got Top-3: TroubleShooting Manual_IndraCs upto MPx18Vrs [Ed05].pdf, AUTOSAR_EXP_PlatformDesign.pdf, AUTOSAR_SWS_COM.pdf
+      Type: multi-hop, Difficulty: medium
+
+====================================================================================================
