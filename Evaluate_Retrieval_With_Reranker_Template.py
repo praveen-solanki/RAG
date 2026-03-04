@@ -10,14 +10,11 @@ Features:
 - Comprehensive evaluation metrics
 """
 
-"""
-This only a sample file, Retrival for only some example queries. 
-"""
 import os
 import json
 import time
 import hashlib
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from dataclasses import dataclass
 import logging
@@ -33,9 +30,6 @@ from qdrant_client.models import (
     MatchAny,
     Range,
     SparseVector,
-    Prefetch,
-    Query,
-    FusionQuery,
 )
 from nltk.tokenize import word_tokenize
 import nltk
@@ -166,18 +160,24 @@ class OllamaBGEM3:
         self.available = self._test_connection()
     
     def _test_connection(self) -> bool:
-        """Test Ollama availability"""
+        """Test Ollama availability and verify model exists"""
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=2)
             if response.status_code == 200:
                 logger.info(f"✓ Ollama available at {self.base_url}")
+                available_models = [m.get("name", "") for m in response.json().get("models", [])]
+                if self.model not in available_models:
+                    logger.warning(
+                        f"Model '{self.model}' not found in Ollama. "
+                        f"Available: {available_models}"
+                    )
                 return True
         except Exception:
             logger.warning(f"✗ Ollama not available at {self.base_url}")
         return False
     
-    def encode(self, texts: List[str]) -> List[List[float]]:
-        """Encode texts to embeddings"""
+    def encode(self, texts: List[str]) -> List[Optional[List[float]]]:
+        """Encode texts to embeddings; returns None for each failed encoding"""
         embeddings = []
         
         for text in texts:
@@ -191,11 +191,12 @@ class OllamaBGEM3:
                 if response.status_code == 200:
                     embeddings.append(response.json()["embedding"])
                 else:
-                    embeddings.append([0.0] * self.dimension)
+                    logger.warning(f"Embedding failed with status {response.status_code}")
+                    embeddings.append(None)
                     
             except Exception as e:
                 logger.warning(f"Encoding error: {e}")
-                embeddings.append([0.0] * self.dimension)
+                embeddings.append(None)
         
         return embeddings
     
@@ -235,7 +236,7 @@ class BM25Encoder:
         token_idf: Optional[Dict[str, float]] = None,
     ):
         self.vocabulary = vocabulary or {}
-        self.token_idf = token_idf or {}   # ← ADD: IDF weights from ingestion
+        self.token_idf = token_idf or {}
     
     def encode_query(self, query: str) -> SparseVector:
         """Encode query to BM25 sparse vector"""
@@ -252,9 +253,9 @@ class BM25Encoder:
         
         for token, count in token_counts.items():
             tf = count / total if total else 0.0
-            idf = self.token_idf.get(token, 1.0)   # ← USE IDF weight
+            idf = self.token_idf.get(token, 1.0)
             indices.append(self.vocabulary[token])
-            values.append(float(tf * idf))          # ← TF-IDF instead of TF only
+            values.append(float(tf * idf))
         
         return SparseVector(indices=indices, values=values)
 
@@ -440,6 +441,9 @@ class HybridRetriever:
         filter_: Optional[Filter] = None
     ) -> List[SearchResult]:
         """Sparse BM25 search"""
+        if not query_sparse.indices or not query_sparse.values or len(query_sparse.indices) != len(query_sparse.values):
+            logger.debug("Empty or invalid sparse vector — skipping sparse search")
+            return []
         try:
             # Qdrant sparse search using named vector
             results = self.client.query_points(
@@ -662,7 +666,6 @@ class AdvancedEvaluator:
     
     def __init__(self, retriever: HybridRetriever):
         self.retriever = retriever
-        self.results = []
     
     def evaluate_single(
         self,
@@ -686,15 +689,13 @@ class AdvancedEvaluator:
             if filename:
                 retrieved_docs.append(filename)
         
-        # Calculate metrics
-        metrics = {
-            "precision@1": 1.0 if ground_truth in retrieved_docs[:1] else 0.0,
-            "precision@3": 1.0 if ground_truth in retrieved_docs[:3] else 0.0,
-            "precision@5": 1.0 if ground_truth in retrieved_docs[:5] else 0.0,
-            "precision@10": 1.0 if ground_truth in retrieved_docs[:10] else 0.0,
-            "mrr": 1.0 / (retrieved_docs.index(ground_truth) + 1) if ground_truth in retrieved_docs else 0.0,
-            "found": ground_truth in retrieved_docs,
-        }
+        # Calculate metrics — Precision@K = relevant hits in top-K / K
+        metrics = {}
+        for k in [1, 3, 5, 10]:
+            relevant_count = sum(1 for doc in retrieved_docs[:k] if doc == ground_truth)
+            metrics[f"precision@{k}"] = relevant_count / k
+        metrics["mrr"] = 1.0 / (retrieved_docs.index(ground_truth) + 1) if ground_truth in retrieved_docs else 0.0
+        metrics["found"] = ground_truth in retrieved_docs
         
         return {
             "question_id": question.get("id", ""),

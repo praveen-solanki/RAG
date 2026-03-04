@@ -100,7 +100,7 @@ class DocumentSection:
     level: int
     page_number: Optional[int] = None
     section_type: str = "text"  # text, table, list, code
-    section_hierarchy: List[str] = None
+    section_hierarchy: Optional[List[str]] = None
 
     def __post_init__(self):
         if self.section_hierarchy is None:
@@ -733,11 +733,10 @@ def main():
         "vocabulary": bm25_index.vocabulary,
         "token_idf": {k: float(v) for k, v in bm25_index.token_idf.items()},
     }
+    Path(bm25_output).parent.mkdir(parents=True, exist_ok=True)
     with open(bm25_output, "w") as f:
         json.dump(bm25_data, f)
     logger.info(f"  ✓ Saved BM25 index to {bm25_output}")
-    
-    # Add sparse vectors and upload
     logger.info("\nPhase 3: Adding sparse vectors and uploading to Qdrant...")
     
     points_to_upload = []
