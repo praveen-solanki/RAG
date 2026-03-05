@@ -189,7 +189,19 @@ class OllamaBGEM3:
                 )
                 
                 if response.status_code == 200:
-                    embeddings.append(response.json()["embedding"])
+                    raw_vec = response.json()["embedding"]
+                    # Guard against NaN/Inf that the model occasionally produces.
+                    # A single numpy pass checks and fixes non-finite values;
+                    # the array is only allocated when needed (non-finite present).
+                    arr = np.asarray(raw_vec, dtype=np.float64)
+                    if not np.isfinite(arr).all():
+                        arr[~np.isfinite(arr)] = 0.0
+                        raw_vec = arr.tolist()
+                        logger.warning(
+                            f"Embedding contained NaN/Inf components — "
+                            f"replaced with 0.0 (text length: {len(text)} chars)."
+                        )
+                    embeddings.append(raw_vec)
                 else:
                     logger.warning(f"Embedding failed with status {response.status_code}")
                     embeddings.append(None)
@@ -215,11 +227,22 @@ class OllamaBGEM3:
             try:
                 doc_emb = self.encode([doc])[0]
                 
-                # Cosine similarity
-                score = np.dot(query_emb, doc_emb) / (
-                    np.linalg.norm(query_emb) * np.linalg.norm(doc_emb)
-                )
-                scores.append(float(score))
+                # Cosine similarity — guard against zero-norm vectors
+                # (produced when all components were NaN/Inf and zeroed out,
+                # or when the model returns an all-zero vector).
+                # A zero-norm vector has no directional meaning, so we
+                # assign a neutral score of 0.0 rather than producing NaN.
+                q_norm = np.linalg.norm(query_emb)
+                d_norm = np.linalg.norm(doc_emb)
+                if q_norm < 1e-10 or d_norm < 1e-10:
+                    logger.warning(
+                        "Reranker: near-zero-norm embedding encountered "
+                        "(query or doc vector is all-zeros or nearly so) — score set to 0.0."
+                    )
+                    scores.append(0.0)
+                else:
+                    score = np.dot(query_emb, doc_emb) / (q_norm * d_norm)
+                    scores.append(float(score))
                 
             except Exception as e:
                 logger.warning(f"Reranking error: {e}")
