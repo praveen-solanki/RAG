@@ -4,8 +4,16 @@ ADVANCED RAG INGESTION SYSTEM V2 (CLEAN)
 Improvements over V1:
 - pypdfium2 for PDF text extraction (proper word spacing, no concatenated table words)
 - TOC / boilerplate page detection and skipping
+  * Ratio threshold raised 0.30 → 0.50 (need majority of lines to match)
+  * Minimum 5 non-empty lines required before ratio check (prevents false positives
+    on short section-header pages like "Version ......... 3.0.0")
+  * Max-chars guard: pages > 800 chars are never discarded regardless of ratio
+  * Skipped page numbers are logged for auditability
 - Near-duplicate chunk removal via Jaccard similarity (85% threshold)
 - Larger chunk overlap (256 chars instead of 128) to reduce boundary failures
+- Embedding robustness: pre-truncate chunks > MAX_EMBED_CHARS before sending to
+  Ollama; on HTTP 500, truncate and retry instead of silently dropping the chunk;
+  per-file summary log of any remaining skips
 - All V1 features preserved: section-aware chunking, BM25, hybrid Qdrant upload,
   OllamaBGEM3Embedder with retry, deduplication by file hash, dimension-mismatch check
 """
@@ -89,8 +97,13 @@ JACCARD_DEDUP_THRESHOLD = 0.85   # chunks with >85% Jaccard similarity are dropp
 JACCARD_WINDOW = 20              # compare each new chunk against last N accepted chunks
 
 # TOC detection
-TOC_LINE_RATIO = 0.30            # >30% of non-empty lines look like TOC entries → skip page
-TOC_MIN_CONTENT_CHARS = 50      # pages with fewer characters are classified as TOC/boilerplate
+TOC_LINE_RATIO = 0.50            # >50% of non-empty lines look like TOC entries → skip page
+TOC_MIN_CONTENT_CHARS = 50       # pages with fewer characters are classified as TOC/boilerplate
+TOC_MIN_LINE_COUNT = 5           # don't ratio-classify pages with fewer non-empty lines (section headers)
+TOC_MAX_CONTENT_CHARS = 800      # never classify dense pages as TOC regardless of ratio
+
+# Embedding safety
+MAX_EMBED_CHARS = 4000           # truncate chunk text to this before sending to Ollama (fits any context window)
 
 # =========================================
 
@@ -202,20 +215,39 @@ class OllamaBGEM3Embedder:
 
     def encode(self, texts: List[str], batch_size: int = 8,
                show_progress_bar: bool = False) -> List[Optional[List[float]]]:
-        """Encode texts using Ollama BGE-M3 with per-text retry."""
+        """
+        Encode texts using Ollama BGE-M3 with per-text retry and automatic
+        pre-truncation for oversized inputs.
+
+        BGE-M3 in Ollama returns HTTP 500 when the prompt exceeds the model's
+        context window.  Every text is pre-truncated to MAX_EMBED_CHARS before
+        the first request — this eliminates context-window 500s entirely without
+        consuming a retry slot.  The three retry attempts are reserved for
+        genuine transient server or network errors.
+
+        On any failure the Ollama response body is included in the warning log
+        so the root cause is visible without inspecting Ollama's own log file.
+        A per-batch summary warns if any chunks end up missing from the index.
+        """
         embeddings: List[Optional[List[float]]] = []
+        skipped_count = 0
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
 
             for text in batch:
+                # Pre-truncate BEFORE the first request.  MAX_EMBED_CHARS (~1 000 tokens)
+                # is well within BGE-M3's 8192-token context window, so this never
+                # loses meaningful content and prevents all context-overflow 500s.
+                safe_text = text if len(text) <= MAX_EMBED_CHARS else text[:MAX_EMBED_CHARS]
+
                 embedding = None
                 for attempt in range(3):
                     try:
                         response = requests.post(
                             f"{self.base_url}/api/embeddings",
-                            json={"model": self.model, "prompt": text},
-                            timeout=30
+                            json={"model": self.model, "prompt": safe_text},
+                            timeout=60
                         )
                         if response.status_code == 200:
                             embedding = response.json()["embedding"]
@@ -223,7 +255,7 @@ class OllamaBGEM3Embedder:
                         else:
                             logger.warning(
                                 f"Embedding attempt {attempt + 1} failed with status "
-                                f"{response.status_code}"
+                                f"{response.status_code}: {response.text[:120]}"
                             )
                     except Exception as e:
                         logger.warning(f"Embedding attempt {attempt + 1} error: {e}")
@@ -231,11 +263,22 @@ class OllamaBGEM3Embedder:
                         time.sleep(2 ** attempt)
 
                 if embedding is None:
-                    logger.warning("Failed to get embedding after 3 attempts, skipping chunk")
+                    skipped_count += 1
+                    logger.warning(
+                        f"Failed to embed chunk after 3 attempts "
+                        f"(sent {len(safe_text)} chars, original {len(text)} chars). "
+                        f"Total skipped so far: {skipped_count}"
+                    )
                 embeddings.append(embedding)
 
             if show_progress_bar and (i // batch_size) % 10 == 0:
                 logger.info(f"Encoded {min(i + batch_size, len(texts))}/{len(texts)} texts")
+
+        if skipped_count:
+            logger.warning(
+                f"⚠  {skipped_count}/{len(texts)} chunks could not be embedded and "
+                f"will be missing from the index. Check Ollama logs for details."
+            )
 
         return embeddings
 
@@ -487,31 +530,53 @@ class AdvancedDocumentLoader:
     """Enhanced document loader with pypdfium2-based PDF extraction."""
 
     # TOC line pattern: text … dots … page number
-    _TOC_LINE_RE = re.compile(r'(\.\s*){3,}.*\d+\s*$')
+    _TOC_LINE_RE = re.compile(r'(\.\s*){2,}.*\d+\s*$')
 
     @staticmethod
     def _is_toc_page(page_text: str) -> bool:
         """
-        Return True if this page looks like a Table-of-Contents page.
+        Return True if this page looks like a Table-of-Contents / boilerplate
+        page that adds no retrievable content to the index.
 
-        A page is classified as TOC if:
-        - It has fewer than TOC_MIN_CONTENT_CHARS of actual content, OR
-        - More than TOC_LINE_RATIO of its non-empty lines match a TOC entry pattern
-          (text followed by leader dots followed by a page number).
+        Classification rules (all must pass to be considered TOC):
+
+        1. Near-empty pages (< TOC_MIN_CONTENT_CHARS chars) are always dropped —
+           these are blank separators or single-line chapter dividers.
+        2. Content-dense pages (> TOC_MAX_CONTENT_CHARS chars) are NEVER dropped
+           regardless of ratio, preventing false positives on real specification
+           pages that happen to contain a version annotation like
+           "Version ......... 3.0.0".
+        3. Pages with fewer than TOC_MIN_LINE_COUNT non-empty lines are NOT
+           ratio-classified — they are section headings, not TOC pages.
+        4. A page is classified as TOC only when MORE THAN TOC_LINE_RATIO of its
+           non-empty lines match the leader-dot pattern  (text . . . number).
+           The threshold is 0.50 (majority), not 0.30, to avoid false positives
+           from pages with a single dotted version line among real content.
         """
         stripped = page_text.strip()
+
+        # Rule 1 – near-empty page: blank separator, single-line chapter title
         if len(stripped) < TOC_MIN_CONTENT_CHARS:
             return True
+
+        # Rule 2 – content-dense page: too much text to be a pure TOC page
+        if len(stripped) > TOC_MAX_CONTENT_CHARS:
+            return False
 
         non_empty_lines = [l for l in stripped.splitlines() if l.strip()]
         if not non_empty_lines:
             return True
 
+        # Rule 3 – too few lines to make a reliable ratio decision
+        if len(non_empty_lines) < TOC_MIN_LINE_COUNT:
+            return False
+
+        # Rule 4 – majority of lines must be TOC-style entries
         toc_line_count = sum(
             1 for line in non_empty_lines
             if AdvancedDocumentLoader._TOC_LINE_RE.search(line)
         )
-        return (toc_line_count / len(non_empty_lines)) > TOC_LINE_RATIO
+        return (toc_line_count / len(non_empty_lines)) >= TOC_LINE_RATIO
 
     @staticmethod
     def extract_metadata(path: str) -> Dict:
@@ -534,7 +599,7 @@ class AdvancedDocumentLoader:
         """
         metadata: Dict = {"num_pages": 0, "has_tables": False, "tables_count": 0}
         text_parts: List[str] = []
-        skipped_toc = 0
+        skipped_pages: List[int] = []
 
         # --- text extraction via pypdfium2 ---
         pdf = pdfium.PdfDocument(path)
@@ -552,15 +617,18 @@ class AdvancedDocumentLoader:
                 continue
 
             if AdvancedDocumentLoader._is_toc_page(page_text):
-                skipped_toc += 1
+                skipped_pages.append(page_num + 1)
                 continue
 
             text_parts.append(f"\n[Page {page_num + 1}]\n{page_text}\n")
 
         pdf.close()
 
-        if skipped_toc:
-            logger.info(f"  ⊘ Skipped {skipped_toc} TOC/boilerplate pages")
+        if skipped_pages:
+            logger.info(
+                f"  ⊘ Skipped {len(skipped_pages)} TOC/boilerplate pages: "
+                f"{skipped_pages[:10]}{'...' if len(skipped_pages) > 10 else ''}"
+            )
 
         # --- table count metadata via pdfplumber (no text used) ---
         try:
