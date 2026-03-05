@@ -20,6 +20,7 @@ Improvements over V1:
 
 import argparse
 import json
+import math
 import numpy as np
 import os
 import re
@@ -231,6 +232,7 @@ class OllamaBGEM3Embedder:
         """
         embeddings: List[Optional[List[float]]] = []
         skipped_count = 0
+        patched_count = 0  # chunks where NaN/Inf components were replaced with 0.0
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
@@ -252,7 +254,29 @@ class OllamaBGEM3Embedder:
                         if response.status_code == 200:
                             data = response.json()
                             if "embedding" in data:
-                                embedding = data["embedding"]
+                                raw_vec = data["embedding"]
+                                # Fast-path: math.isfinite check adds no measurable
+                                # overhead and avoids numpy allocation on the common
+                                # case where every component is a normal float.
+                                if not all(math.isfinite(x) for x in raw_vec):
+                                    # Rare path: model produced NaN/Inf.  Replace
+                                    # non-finite components with 0.0 so the vector
+                                    # remains usable in Qdrant, and track how often
+                                    # this happens so operators can spot patterns.
+                                    arr = np.array(raw_vec, dtype=np.float64)
+                                    non_finite_mask = ~np.isfinite(arr)
+                                    n_bad = int(non_finite_mask.sum())
+                                    logger.warning(
+                                        f"Embedding attempt {attempt + 1}: "
+                                        f"{n_bad} non-finite component(s) (NaN/Inf) "
+                                        f"replaced with 0.0 in vector for chunk of "
+                                        f"{len(safe_text)} chars. "
+                                        f"Consider investigating this input text."
+                                    )
+                                    arr[non_finite_mask] = 0.0
+                                    raw_vec = arr.tolist()
+                                    patched_count += 1
+                                embedding = raw_vec
                                 break
                             else:
                                 # Ollama API changed key name or returned an error body
@@ -262,10 +286,23 @@ class OllamaBGEM3Embedder:
                                     f"{response.text[:120]}"
                                 )
                         else:
+                            body = response.text
                             logger.warning(
                                 f"Embedding attempt {attempt + 1} failed with status "
-                                f"{response.status_code}: {response.text[:120]}"
+                                f"{response.status_code}: {body[:120]}"
                             )
+                            # "json: unsupported value" means the model produced a
+                            # NaN/Inf that Go's JSON encoder refuses to serialise.
+                            # This is deterministic — the same text always triggers
+                            # the same failure, so retrying wastes time.  Break
+                            # immediately and let the chunk be skipped.
+                            if "unsupported value" in body:
+                                logger.warning(
+                                    f"Embedding attempt {attempt + 1}: Ollama returned "
+                                    f"'json: unsupported value' (NaN/Inf in model output) "
+                                    f"— skipping retries for this chunk."
+                                )
+                                break
                     except Exception as e:
                         logger.warning(f"Embedding attempt {attempt + 1} error: {e}")
                     if attempt < 2:
@@ -283,6 +320,12 @@ class OllamaBGEM3Embedder:
             if show_progress_bar and (i // batch_size) % 10 == 0:
                 logger.info(f"Encoded {min(i + batch_size, len(texts))}/{len(texts)} texts")
 
+        if patched_count:
+            logger.warning(
+                f"⚠  {patched_count}/{len(texts)} chunks had NaN/Inf components "
+                f"replaced with 0.0 — retrieval quality for those chunks may be "
+                f"degraded. Check Ollama logs or investigate the input text."
+            )
         if skipped_count:
             logger.warning(
                 f"⚠  {skipped_count}/{len(texts)} chunks could not be embedded and "
