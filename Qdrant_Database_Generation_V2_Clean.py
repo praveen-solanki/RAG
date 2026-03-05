@@ -250,8 +250,17 @@ class OllamaBGEM3Embedder:
                             timeout=60
                         )
                         if response.status_code == 200:
-                            embedding = response.json()["embedding"]
-                            break
+                            data = response.json()
+                            if "embedding" in data:
+                                embedding = data["embedding"]
+                                break
+                            else:
+                                # Ollama API changed key name or returned an error body
+                                logger.warning(
+                                    f"Embedding attempt {attempt + 1}: "
+                                    f"unexpected response format (no 'embedding' key): "
+                                    f"{response.text[:120]}"
+                                )
                         else:
                             logger.warning(
                                 f"Embedding attempt {attempt + 1} failed with status "
@@ -413,7 +422,7 @@ class SectionAwareChunker:
                 chunks.append(EnrichedChunk(
                     text=current_chunk.strip(),
                     section_title=section_title,
-                    section_hierarchy=section_hierarchy,
+                    section_hierarchy=list(section_hierarchy),
                     page_number=None,
                     chunk_type="text",
                     word_count=len(word_tokenize(current_chunk)),
@@ -437,7 +446,7 @@ class SectionAwareChunker:
             chunks.append(EnrichedChunk(
                 text=current_chunk.strip(),
                 section_title=section_title,
-                section_hierarchy=section_hierarchy,
+                section_hierarchy=list(section_hierarchy),
                 page_number=None,
                 chunk_type="text",
                 word_count=len(word_tokenize(current_chunk)),
@@ -563,9 +572,10 @@ class AdvancedDocumentLoader:
         if len(stripped) > TOC_MAX_CONTENT_CHARS:
             return False
 
+        # At this point stripped is between 50 and 800 chars of non-whitespace content.
+        # splitlines() on such a string always yields at least one non-empty line,
+        # so no explicit empty-list guard is needed here.
         non_empty_lines = [l for l in stripped.splitlines() if l.strip()]
-        if not non_empty_lines:
-            return True
 
         # Rule 3 – too few lines to make a reliable ratio decision
         if len(non_empty_lines) < TOC_MIN_LINE_COUNT:
@@ -596,6 +606,8 @@ class AdvancedDocumentLoader:
         metadata using pdfplumber (table extraction only, not for text content).
 
         TOC pages and near-empty pages are skipped automatically.
+        All PDF handles are closed in finally blocks to prevent file-descriptor
+        leaks even when a page is corrupted or raises an exception mid-loop.
         """
         metadata: Dict = {"num_pages": 0, "has_tables": False, "tables_count": 0}
         text_parts: List[str] = []
@@ -603,26 +615,37 @@ class AdvancedDocumentLoader:
 
         # --- text extraction via pypdfium2 ---
         pdf = pdfium.PdfDocument(path)
-        num_pages = len(pdf)
-        metadata["num_pages"] = num_pages
+        try:
+            num_pages = len(pdf)
+            metadata["num_pages"] = num_pages
 
-        for page_num in range(num_pages):
-            page = pdf[page_num]
-            textpage = page.get_textpage()
-            page_text = textpage.get_text_bounded()
-            textpage.close()
-            page.close()
+            for page_num in range(num_pages):
+                page = pdf[page_num]
+                page_text = ""          # initialise so the variable is always bound
+                try:
+                    textpage = page.get_textpage()
+                    try:
+                        page_text = textpage.get_text_bounded()
+                    finally:
+                        textpage.close()
+                except Exception as page_err:
+                    # Corrupted or unreadable page — skip it and continue with the rest
+                    logger.warning(
+                        f"  ⚠ Could not extract text from page {page_num + 1}: {page_err}"
+                    )
+                finally:
+                    page.close()
 
-            if not page_text:
-                continue
+                if not page_text:
+                    continue
 
-            if AdvancedDocumentLoader._is_toc_page(page_text):
-                skipped_pages.append(page_num + 1)
-                continue
+                if AdvancedDocumentLoader._is_toc_page(page_text):
+                    skipped_pages.append(page_num + 1)
+                    continue
 
-            text_parts.append(f"\n[Page {page_num + 1}]\n{page_text}\n")
-
-        pdf.close()
+                text_parts.append(f"\n[Page {page_num + 1}]\n{page_text}\n")
+        finally:
+            pdf.close()
 
         if skipped_pages:
             logger.info(
@@ -769,11 +792,11 @@ def main():
         logger.info(f"✓ Created collection: {collection}")
     else:
         col_info = client.get_collection(collection)
-        existing_dim = (
-            col_info.config.params.vectors.get("dense").size
-            if hasattr(col_info.config.params.vectors, "get")
-            else None
-        )
+        existing_dim = None
+        if hasattr(col_info.config.params.vectors, "get"):
+            dense_cfg = col_info.config.params.vectors.get("dense")
+            if dense_cfg is not None:
+                existing_dim = dense_cfg.size
         if existing_dim is not None and existing_dim != embedding_dim:
             logger.error(
                 f"✗ Dimension mismatch: collection '{collection}' has {existing_dim}-dim vectors, "
