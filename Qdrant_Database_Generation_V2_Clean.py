@@ -89,8 +89,8 @@ JACCARD_DEDUP_THRESHOLD = 0.85   # chunks with >85% Jaccard similarity are dropp
 JACCARD_WINDOW = 20              # compare each new chunk against last N accepted chunks
 
 # TOC detection
-TOC_LINE_RATIO = 0.30            # >30 % of non-empty lines look like TOC entries → skip page
-TOC_MIN_CONTENT_CHARS = 50      # pages shorter than this are also skipped
+TOC_LINE_RATIO = 0.30            # >30% of non-empty lines look like TOC entries → skip page
+TOC_MIN_CONTENT_CHARS = 50      # pages with fewer characters are classified as TOC/boilerplate
 
 # =========================================
 
@@ -487,7 +487,7 @@ class AdvancedDocumentLoader:
     """Enhanced document loader with pypdfium2-based PDF extraction."""
 
     # TOC line pattern: text … dots … page number
-    _TOC_LINE_RE = re.compile(r'\.\s*\.\s*\..*\d+\s*$')
+    _TOC_LINE_RE = re.compile(r'(\.\s*){3,}.*\d+\s*$')
 
     @staticmethod
     def _is_toc_page(page_text: str) -> bool:

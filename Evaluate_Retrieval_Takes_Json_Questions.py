@@ -13,6 +13,7 @@ OR
 python Evaluate_Retrieval_Takes_Json_Questions.py --questions evaluation_questions.json
 """
 import sys
+import re
 from io import StringIO
 from difflib import SequenceMatcher
 import unicodedata
@@ -38,9 +39,12 @@ EVALUATION_MODE = "chunk"  # Options: "document" or "chunk"
 
 
 def normalize(text: str) -> str:
-    """Normalize text for comparison"""
+    """Normalize text for comparison: NFKC + line-break hyphens + dash variants."""
+    text = unicodedata.normalize("NFKC", text)
+    # Remove hyphenated line breaks: "word-\nword" → "wordword" (PDF line-wrap artifact)
+    text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
     return (
-        unicodedata.normalize("NFKC", text)
+        text
         .replace("\n", " ")
         .replace("\u2010", "-")
         .replace("\u2011", "-")
@@ -49,25 +53,107 @@ def normalize(text: str) -> str:
     )
 
 
-def fuzzy_match(snippet: str, text: str, threshold: float = 0.8) -> bool:
-    """Fuzzy match a snippet against text using sliding window"""
-    snippet_clean = normalize(snippet.lower())
-    text_clean = normalize(text.lower())
-    # Check exact first
-    if snippet_clean in text_clean:
-        return True
-    # Fall back to sliding window fuzzy match
-    window_size = len(snippet_clean)
-    if window_size > len(text_clean):
-        # Snippet longer than text — compare full text directly
-        ratio = SequenceMatcher(None, snippet_clean, text_clean).ratio()
-        return ratio >= threshold
-    step = max(1, window_size // 4)
-    for i in range(0, len(text_clean) - window_size + 1, step):
-        window = text_clean[i:min(i + window_size + 20, len(text_clean))]
-        ratio = SequenceMatcher(None, snippet_clean, window).ratio()
-        if ratio >= threshold:
+def _despace(text: str) -> str:
+    """Remove all whitespace — used to match space-concatenated PDF text."""
+    return re.sub(r'\s+', '', text)
+
+
+def _strip_pipes(text: str) -> str:
+    """Replace pipe-table separators with spaces for natural-language comparison."""
+    return re.sub(r'\s*\|\s*', ' ', text).strip()
+
+
+def _kv_to_text(snippet: str) -> str:
+    """
+    Strip 'Key=' prefixes from LLM-synthesized Key=Value snippets.
+    e.g. 'Cause=Bus failure, Remedy=Check cables' → 'Bus failure Check cables'
+    """
+    parts = re.split(r'[,;]\s*', snippet)
+    values = []
+    for part in parts:
+        if '=' in part:
+            _, _, val = part.partition('=')
+            values.append(val.strip())
+        else:
+            values.append(part.strip())
+    return ' '.join(v for v in values if v)
+
+
+def _sliding_match(snippet: str, text: str, threshold: float) -> bool:
+    """Sliding-window fuzzy match with correct step-aware padding."""
+    ws = len(snippet)
+    if ws == 0:
+        return False
+    if ws > len(text):
+        return SequenceMatcher(None, snippet, text).ratio() >= threshold
+    step = max(1, ws // 4)
+    for i in range(0, len(text) - ws + 1, step):
+        # Pad by step size so that a snippet starting mid-step is still fully covered.
+        window = text[i: min(i + ws + step, len(text))]
+        if SequenceMatcher(None, snippet, window).ratio() >= threshold:
             return True
+    return False
+
+
+def fuzzy_match(snippet: str, text: str, threshold: float = 0.8) -> bool:
+    """
+    Multi-strategy fuzzy match of *snippet* against *text*.
+
+    Strategies applied in order (short-circuits on first success):
+    1. Exact substring match (after normalize).
+    2. Sliding-window fuzzy match with fixed-step padding (normalize).
+    3. De-spaced exact match — handles PDF space-concatenation artifacts
+       e.g. snippet 'It is at a low level' vs chunk 'Itisatalowlevel'.
+    4. De-spaced sliding-window fuzzy match.
+    5. Pipe-stripped match — handles pdfplumber pipe-table format.
+    6. Key=Value extraction — handles LLM-synthesized 'Cause=X, Remedy=Y' snippets.
+    """
+    sc = normalize(snippet.lower())
+    tc = normalize(text.lower())
+
+    # 1. Exact
+    if sc in tc:
+        return True
+
+    # 2. Sliding window (normalized)
+    if _sliding_match(sc, tc, threshold):
+        return True
+
+    # 3 & 4. De-spaced (handles concatenated words in snippet OR chunk)
+    sds = _despace(sc)
+    tds = _despace(tc)
+    if sds:
+        if sds in tds:
+            return True
+        if _sliding_match(sds, tds, threshold):
+            return True
+
+    # 5. Pipe-stripped (handles pdfplumber table chunks: 'A | B | C')
+    tc_no_pipe = _strip_pipes(tc)
+    if sc in tc_no_pipe:
+        return True
+    if _sliding_match(sc, tc_no_pipe, threshold):
+        return True
+    # Also try de-spaced against pipe-stripped
+    tds_no_pipe = _despace(tc_no_pipe)
+    if sds and sds in tds_no_pipe:
+        return True
+
+    # 6. Key=Value extraction (handles 'Cause=X, Remedy=Y' synthesized snippets)
+    # MIN_KV_TEXT_LENGTH ensures we don't try to match trivially short extracted values
+    MIN_KV_TEXT_LENGTH = 8
+    if '=' in sc:
+        kv = _kv_to_text(sc)
+        kv_ds = _despace(kv)
+        if kv and len(kv) > MIN_KV_TEXT_LENGTH:
+            if kv in tc or kv in tc_no_pipe:
+                return True
+            if _sliding_match(kv, tc, threshold) or _sliding_match(kv, tc_no_pipe, threshold):
+                return True
+        if kv_ds and len(kv_ds) > MIN_KV_TEXT_LENGTH:
+            if kv_ds in tds or kv_ds in tds_no_pipe:
+                return True
+
     return False
 
 
@@ -155,19 +241,20 @@ class ComprehensiveEvaluator:
                 rank = None
                 reciprocal_rank = 0.0
             
-            # Precision@K: count of relevant docs in top-K / K
+            # Precision@K, Recall@K, NDCG@K — computed for standard K values plus top_k
             metrics = {
                 'found': found,
                 'rank': rank,
                 'mrr': reciprocal_rank,
             }
-            for k in [1, 3, 5, 10]:
+            k_values = sorted(set([1, 3, 5, 10] + ([top_k] if top_k not in [1, 3, 5, 10] else [])))
+            for k in k_values:
                 relevant_count = sum(1 for doc in hit_list[:k] if doc == ground_truth)
                 metrics[f'precision@{k}'] = relevant_count / k
                 metrics[f'recall@{k}'] = 1.0 if ground_truth in hit_list[:k] else 0.0
 
             # Calculate NDCG@K
-            for k in [1, 3, 5, 10]:
+            for k in k_values:
                 dcg = 0.0
                 num_relevant_in_list = sum(1 for doc in hit_list[:k] if doc == ground_truth)
                 for i, doc in enumerate(hit_list[:k], start=1):
@@ -182,11 +269,11 @@ class ComprehensiveEvaluator:
                 if retrieved_docs:
                     logger.info(f"Top-3: {retrieved_docs[:3]}")
                         
-            # Check evidence snippets against retrieved chunks
+            # Check evidence snippets against ALL retrieved chunks (not just top-5)
             evidence_match = []
             for snippet in evidence_snippets:
                 match = {"snippet": snippet, "found_in_rank": None, "found_in_filename": None}
-                for chunk_rank, chunk in enumerate(retrieved_chunks[:5], start=1):
+                for chunk_rank, chunk in enumerate(retrieved_chunks, start=1):
                     if fuzzy_match(snippet, chunk["content"]):
                         match["found_in_rank"] = chunk_rank
                         match["found_in_filename"] = chunk["filename"]
@@ -212,6 +299,12 @@ class ComprehensiveEvaluator:
             
         except Exception as e:
             logger.error(f"Error processing question {question_id}: {e}")
+            k_values = sorted(set([1, 3, 5, 10] + ([top_k] if top_k not in [1, 3, 5, 10] else [])))
+            error_metrics: Dict[str, Any] = {'found': 0.0, 'rank': None, 'mrr': 0.0}
+            for k in k_values:
+                error_metrics[f'precision@{k}'] = 0.0
+                error_metrics[f'recall@{k}'] = 0.0
+                error_metrics[f'ndcg@{k}'] = 0.0
             return {
                 'question_id': question_id,
                 'evaluation_mode': EVALUATION_MODE,
@@ -227,15 +320,7 @@ class ComprehensiveEvaluator:
                 'evidence_snippets': evidence_snippets,
                 'evidence_match': [],
                 'error': str(e),
-                'metrics': {
-                    'found': 0.0, 'rank': None, 'mrr': 0.0,
-                    'precision@1': 0.0, 'precision@3': 0.0,
-                    'precision@5': 0.0, 'precision@10': 0.0,
-                    'recall@1': 0.0, 'recall@3': 0.0,
-                    'recall@5': 0.0, 'recall@10': 0.0,
-                    'ndcg@1': 0.0, 'ndcg@3': 0.0,
-                    'ndcg@5': 0.0, 'ndcg@10': 0.0,
-                }
+                'metrics': error_metrics,
             }
     
     def evaluate_all(
@@ -644,8 +729,8 @@ def main():
     parser.add_argument(
         '--top-k',
         type=int,
-        default=10,
-        help='Number of results to retrieve per question'
+        default=20,
+        help='Number of results to retrieve per question (default 20 for chunk-level coverage)'
     )
     parser.add_argument(
         '--output',
