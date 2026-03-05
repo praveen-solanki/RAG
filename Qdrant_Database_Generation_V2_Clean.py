@@ -907,6 +907,8 @@ def main():
                             "chunk_length": len(chunk.text),
                             "word_count": chunk.word_count,
                             "sentence_count": chunk.sentence_count,
+                            "start_char": chunk.start_char,
+                            "end_char": chunk.end_char,
                             "section_title": chunk.section_title,
                             "section_hierarchy": chunk.section_hierarchy,
                             "chunk_type": chunk.chunk_type,
