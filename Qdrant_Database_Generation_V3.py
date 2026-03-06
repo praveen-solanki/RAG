@@ -267,6 +267,13 @@ SECTION_PATTERNS = [
     # DocumentSection(section_type="table") so it is chunked row-by-row.
     r'^\[TABLE \d+\]$',
     r'^\[Table \d+\]$',
+    # Visual-content markers injected by _extract_images_as_text().
+    # Each embedded raster image gets [IMAGE N] and each vector diagram /
+    # vision-described figure gets [DIAGRAM N].  detect_sections() turns them
+    # into separate DocumentSection objects (section_type="image"/"diagram")
+    # so visual content is never merged into surrounding prose chunks.
+    r'^\[IMAGE \d+\]$',
+    r'^\[DIAGRAM \d+\]$',
 ]
 
 BM25_OUTPUT = "bm25_index_autosar.json"
@@ -875,6 +882,104 @@ class ContentTypeExtractor:
 
     # ── Table extraction ────────────────────────────────────────────────────
 
+    # Minimum pixel size thresholds for meaningful raster images:
+    #   _MIN_IMAGE_DIMENSION: each side must exceed 20 px to exclude 1×1
+    #     tracking pixels and small PDF-form decoration glyphs.
+    #   _MIN_IMAGE_AREA: total pixel area must exceed 1 000 px² to exclude
+    #     narrow-but-tall or wide-but-short rule-line images.
+    _MIN_IMAGE_DIMENSION: int = 20
+    _MIN_IMAGE_AREA: int = 1000
+
+    @staticmethod
+    def _is_meaningful_image(img: dict) -> bool:
+        """
+        Return True if the pdfplumber image object represents a substantial
+        visual element worth indexing as its own chunk.
+
+        Tiny images (tracking pixels, small icons, PDF form decorations) are
+        filtered out to avoid noise.  We check the source resolution in pixels
+        because PDF point-space dimensions can be misleading.
+        """
+        try:
+            # pdfplumber stores source resolution as 'srcsize': (width_px, height_px)
+            src = img.get("srcsize") or ()
+            w_px = src[0] if len(src) > 0 else img.get("width", 0)
+            h_px = src[1] if len(src) > 1 else img.get("height", 0)
+            min_d = ContentTypeExtractor._MIN_IMAGE_DIMENSION
+            min_a = ContentTypeExtractor._MIN_IMAGE_AREA
+            return bool(w_px and h_px
+                        and w_px > min_d and h_px > min_d
+                        and w_px * h_px > min_a)
+        except Exception:
+            return False
+
+    def _extract_images_as_text(
+        self,
+        pdf_path: str,
+        page_index: int,
+        plumber_page,
+    ) -> List[str]:
+        """
+        For each meaningful visual element on a page, produce a tagged text
+        block ([IMAGE N] or [DIAGRAM N]) so that detect_sections() creates a
+        separate DocumentSection per visual element.
+
+        Strategy
+        --------
+        1. Raster images (detected by pdfplumber as 'images'):
+           • Each meaningful image gets its own [IMAGE N] block.
+           • The first image carries the full-page vision/OCR description
+             (we cannot easily crop individual images without complex PDF
+             rendering); subsequent images get a positional placeholder.
+        2. Vector diagrams / figures (no raster images but page was classified
+           as having visual content):
+           • Emit one [DIAGRAM 1] block with the vision description.
+           • If no vision model is available, skip (no placeholder — we cannot
+             describe vector art without a vision model and an empty chunk adds
+             no retrieval value).
+
+        Returns a list of tagged strings (one per visual element).
+        """
+        results: List[str] = []
+        meaningful_imgs: List[dict] = []
+        try:
+            raw_imgs = plumber_page.images if plumber_page else []
+            meaningful_imgs = [img for img in (raw_imgs or [])
+                               if self._is_meaningful_image(img)]
+        except Exception:
+            pass
+
+        if meaningful_imgs:
+            # Get one full-page description to accompany the first image.
+            shared_desc = self._describe_image(pdf_path, page_index)
+            for idx, img in enumerate(meaningful_imgs, 1):
+                if idx == 1:
+                    # Primary image block carries the vision description.
+                    content = shared_desc or (
+                        f"[Embedded image, page {page_index + 1}, "
+                        f"size {img.get('srcsize', ('?', '?'))[0]}"
+                        f"×{img.get('srcsize', ('?', '?'))[1]} px]"
+                    )
+                else:
+                    # Additional images get a positional placeholder so each
+                    # still becomes a distinct retrievable chunk.
+                    content = (
+                        f"[Embedded image {idx}/{len(meaningful_imgs)}, "
+                        f"page {page_index + 1}, "
+                        f"size {img.get('srcsize', ('?', '?'))[0]}"
+                        f"×{img.get('srcsize', ('?', '?'))[1]} px]"
+                    )
+                results.append(f"\n[IMAGE {idx}]\n{content}\n")
+        else:
+            # No raster images → the visual content is vector-drawn (shapes,
+            # paths).  Only emit a DIAGRAM block when the vision model is
+            # reachable (an empty block wastes storage and ranking budget).
+            desc = self._describe_diagram(pdf_path, page_index)
+            if desc:
+                results.append(f"\n[DIAGRAM 1]\n{desc}\n")
+
+        return results
+
     @staticmethod
     def _is_meaningful_table(table: list) -> bool:
         """
@@ -988,19 +1093,15 @@ class ContentTypeExtractor:
             parts = []
             if tier1_text.strip():
                 parts.append(tier1_text.strip())
+            # Tables: each gets its own [TABLE N] marker → separate section
             table_text = self._extract_table_structured(plumber_page)
             if table_text:
                 parts.append(table_text)
-            # If there are images, try to describe them too
-            has_images = False
-            try:
-                has_images = bool(plumber_page and plumber_page.images)
-            except Exception:
-                pass
-            if has_images:
-                desc = self._describe_image(pdf_path, page_index)
-                if desc:
-                    parts.append(f"[Visual Content]\n{desc}")
+            # Images / diagrams: each gets its own [IMAGE N] or [DIAGRAM N]
+            # marker → detect_sections() creates a separate section per visual
+            # element so visual content is never merged into prose chunks.
+            img_parts = self._extract_images_as_text(pdf_path, page_index, plumber_page)
+            parts.extend(img_parts)
             return "\n\n".join(filter(None, parts))
 
         # Fallback
@@ -1573,6 +1674,22 @@ class SemanticChunker:
     _section_patterns = [re.compile(p, re.MULTILINE) for p in SECTION_PATTERNS]
     # Regex for identifying inline table markers (case-insensitive)
     _TABLE_TITLE_RE = re.compile(r'^\[Table ', re.IGNORECASE)
+    # Regex for identifying inline image / diagram markers (uppercase, as emitted
+    # by _extract_images_as_text).  No IGNORECASE flag needed since the generator
+    # always uses all-caps [IMAGE N] and [DIAGRAM N].
+    _IMAGE_TITLE_RE  = re.compile(r'^\[IMAGE \d+\]$')
+    _DIAGRAM_TITLE_RE = re.compile(r'^\[DIAGRAM \d+\]$')
+
+    @staticmethod
+    def _section_type_for_title(title: str) -> str:
+        """Return the section_type string for the given section title marker."""
+        if re.match(r'^\[Table ', title, re.IGNORECASE):
+            return "table"
+        if re.match(r'^\[IMAGE \d+\]$', title, re.IGNORECASE):
+            return "image"
+        if re.match(r'^\[DIAGRAM \d+\]$', title, re.IGNORECASE):
+            return "diagram"
+        return "text"
 
     def detect_sections(self, text: str) -> List[DocumentSection]:
         sections: List[DocumentSection] = []
@@ -1592,8 +1709,11 @@ class SemanticChunker:
                     if ls.startswith("#"):
                         level = len(ls) - len(ls.lstrip("#"))
                     elif self._TABLE_TITLE_RE.match(ls):
-                        # Table markers are leaf-level (level 4) so they nest
-                        # inside numbered sections and preserve their hierarchy.
+                        # Table/image/diagram markers are leaf-level (level 4)
+                        # so they nest inside numbered sections and preserve
+                        # their parent section hierarchy.
+                        level = 4
+                    elif self._IMAGE_TITLE_RE.match(ls) or self._DIAGRAM_TITLE_RE.match(ls):
                         level = 4
                     elif ls.isupper():
                         level = 1
@@ -1603,7 +1723,7 @@ class SemanticChunker:
             if is_hdr and len(ls) < 200:
                 if cur["content"].strip():
                     hier = [s["title"] for s in stack if s["title"]]
-                    stype = "table" if self._TABLE_TITLE_RE.match(cur["title"]) else "text"
+                    stype = self._section_type_for_title(cur["title"])
                     sections.append(DocumentSection(
                         title=cur["title"],
                         content=cur["content"].strip(),
@@ -1620,7 +1740,7 @@ class SemanticChunker:
 
         if cur["content"].strip():
             hier = [s["title"] for s in stack if s["title"]]
-            stype = "table" if self._TABLE_TITLE_RE.match(cur["title"]) else "text"
+            stype = self._section_type_for_title(cur["title"])
             sections.append(DocumentSection(
                 title=cur["title"],
                 content=cur["content"].strip(),
