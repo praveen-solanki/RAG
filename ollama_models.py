@@ -16,7 +16,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 # ==================================================
 
 def get_available_models(base_url: str = OLLAMA_BASE_URL) -> List[str]:
-    response = requests.get(f"{base_url}/api/tags", timeout=None)
+    response = requests.get(f"{base_url}/api/tags", timeout=10)
     response.raise_for_status()
     return [m["name"] for m in response.json().get("models", [])]
 

@@ -913,6 +913,34 @@ class ContentTypeExtractor:
         except Exception:
             return False
 
+    @staticmethod
+    def _has_vector_drawings(plumber_page) -> bool:
+        """
+        Return True when the page contains a non-trivial network of vector paths
+        that is likely a diagram or flow chart.
+
+        We look for:
+        • ≥ 3 curve objects (Bezier / arc segments — essentially never produced
+          by simple table borders or page frames).
+        • ≥ 10 non-degenerate line segments (a dense grid of lines is a strong
+          indicator of a flow chart, block diagram, or schematic).
+
+        Degenerate lines (zero-length stubs) are excluded because pdfplumber
+        sometimes reports them for invisible form-field anchors.
+        """
+        if plumber_page is None:
+            return False
+        try:
+            if len(plumber_page.curves or []) >= 3:
+                return True
+            non_degenerate = [
+                ln for ln in (plumber_page.lines or [])
+                if ln.get("width", 0) != 0 or ln.get("height", 0) != 0
+            ]
+            return len(non_degenerate) >= 10
+        except Exception:
+            return False
+
     def _extract_images_as_text(
         self,
         pdf_path: str,
@@ -928,15 +956,19 @@ class ContentTypeExtractor:
         --------
         1. Raster images (detected by pdfplumber as 'images'):
            • Each meaningful image gets its own [IMAGE N] block.
-           • The first image carries the full-page vision/OCR description
-             (we cannot easily crop individual images without complex PDF
-             rendering); subsequent images get a positional placeholder.
-        2. Vector diagrams / figures (no raster images but page was classified
-           as having visual content):
+           • All images on the page share one full-page vision description
+             (individual image cropping would require complex PDF rendering).
+             A size annotation distinguishes each entry so the chunk is not
+             a duplicate of its siblings.
+           • After the image blocks, if the page also carries significant
+             vector drawings (curves / dense line networks), a separate
+             [DIAGRAM 1] block is emitted with the diagram-specific prompt so
+             that vector-drawn flow charts are not silently dropped.
+        2. Vector diagrams / figures (no raster images but the page was
+           classified as having visual content):
            • Emit one [DIAGRAM 1] block with the vision description.
-           • If no vision model is available, skip (no placeholder — we cannot
-             describe vector art without a vision model and an empty chunk adds
-             no retrieval value).
+           • If no vision model is available, skip — we cannot describe vector
+             art without one, and an empty chunk adds no retrieval value.
 
         Returns a list of tagged strings (one per visual element).
         """
@@ -950,26 +982,36 @@ class ContentTypeExtractor:
             pass
 
         if meaningful_imgs:
-            # Get one full-page description to accompany the first image.
+            # One full-page description is shared by all raster images because
+            # _describe_image() renders the entire page — individual crops are
+            # not feasible without complex PDF rendering.
             shared_desc = self._describe_image(pdf_path, page_index)
             for idx, img in enumerate(meaningful_imgs, 1):
-                if idx == 1:
-                    # Primary image block carries the vision description.
-                    content = shared_desc or (
-                        f"[Embedded image, page {page_index + 1}, "
-                        f"size {img.get('srcsize', ('?', '?'))[0]}"
-                        f"×{img.get('srcsize', ('?', '?'))[1]} px]"
+                srcsize = img.get("srcsize", ("?", "?"))
+                size_str = f"{srcsize[0]}×{srcsize[1]} px"
+                if shared_desc:
+                    # All images on the page share the same vision description;
+                    # include a size annotation so each chunk is distinguishable.
+                    content = (
+                        f"{shared_desc}\n"
+                        f"[Image {idx}/{len(meaningful_imgs)} on page "
+                        f"{page_index + 1}, size {size_str}]"
                     )
                 else:
-                    # Additional images get a positional placeholder so each
-                    # still becomes a distinct retrievable chunk.
                     content = (
                         f"[Embedded image {idx}/{len(meaningful_imgs)}, "
-                        f"page {page_index + 1}, "
-                        f"size {img.get('srcsize', ('?', '?'))[0]}"
-                        f"×{img.get('srcsize', ('?', '?'))[1]} px]"
+                        f"page {page_index + 1}, size {size_str}]"
                     )
                 results.append(f"\n[IMAGE {idx}]\n{content}\n")
+
+            # Also emit a DIAGRAM block when significant vector drawings exist
+            # alongside the raster images — a page may contain both an embedded
+            # bitmap and a vector-drawn flow chart, and the vector content would
+            # otherwise be silently dropped.
+            if self._has_vector_drawings(plumber_page):
+                desc = self._describe_diagram(pdf_path, page_index)
+                if desc:
+                    results.append(f"\n[DIAGRAM 1]\n{desc}\n")
         else:
             # No raster images → the visual content is vector-drawn (shapes,
             # paths).  Only emit a DIAGRAM block when the vision model is
