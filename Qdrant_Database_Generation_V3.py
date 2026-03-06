@@ -259,6 +259,14 @@ SECTION_PATTERNS = [
     # All-caps headings (5–50 chars to avoid matching short enumerated constants).
     # Minimum of 5 total chars: [A-Z] + 4 more uppercase/space chars.
     r'^([A-Z][A-Z\s]{4,49})$',
+    # Inline table markers injected by _extract_table_structured / _extract_tables_as_text.
+    # Both variants must be listed because extraction uses different casing:
+    #   _extract_table_structured → "[TABLE N]"  (all-caps)
+    #   _extract_tables_as_text   → "[Table N]"  (title-case)
+    # These patterns make detect_sections() split each table into its own
+    # DocumentSection(section_type="table") so it is chunked row-by-row.
+    r'^\[TABLE \d+\]$',
+    r'^\[Table \d+\]$',
 ]
 
 BM25_OUTPUT = "bm25_index_autosar.json"
@@ -561,11 +569,22 @@ class OllamaVisionClassifier:
         if text_len < OCR_TRIGGER_CHARS and has_images:
             return PageType.DIAGRAM, 0.55   # low confidence → will trigger vision
 
-        # Table-dominant page
+        # Table-bearing page.
+        # AUTOSAR pages that are primarily tabular often have header/caption text
+        # alongside the tables (> 300 chars).  We classify them as TABLE when the
+        # tables are the dominant content (many tables, or little surrounding text),
+        # and as MIXED otherwise.  In both cases every individual table is chunked
+        # separately by detect_sections(), so the classification only determines
+        # which extraction strategy is used for the non-table text portion.
         if has_tables and table_count >= 1:
-            if text_len < 300:
+            # Multiple tables on a single page → almost certainly TABLE-dominant
+            if table_count > 1:
                 return PageType.TABLE, 0.85
-            return PageType.MIXED, 0.65
+            # Single table but very little text → TABLE
+            if text_len < 600:
+                return PageType.TABLE, 0.85
+            # Single table alongside substantial text → MIXED
+            return PageType.MIXED, 0.70
 
         # Dense text page
         if text_len > 500 and not has_images:
@@ -857,19 +876,40 @@ class ContentTypeExtractor:
     # ── Table extraction ────────────────────────────────────────────────────
 
     @staticmethod
+    def _is_meaningful_table(table: list) -> bool:
+        """
+        Return True if the table has enough non-empty cells to be worth indexing.
+        pdfplumber sometimes detects diagram or figure borders as table cells,
+        producing nearly-empty tables.  We skip those.
+        """
+        if not table:
+            return False
+        total = sum(len(row) for row in table)
+        if total == 0:
+            return False
+        non_empty = sum(
+            1 for row in table for cell in row
+            if cell and str(cell).strip()
+        )
+        return non_empty / total >= 0.20  # at least 20% of cells must have content
+
+    @staticmethod
     def _extract_table_structured(plumber_page) -> str:
         """
         Extract tables from a pdfplumber page as structured pipe-delimited text,
         including header detection (first row of each table treated as header).
+        Near-empty tables (likely diagram-border artifacts) are skipped.
         """
         if plumber_page is None:
             return ""
         parts: List[str] = []
+        tbl_counter = 0
         try:
             tables = plumber_page.extract_tables()
-            for tbl_idx, table in enumerate(tables):
-                if not table:
+            for table in tables:
+                if not table or not ContentTypeExtractor._is_meaningful_table(table):
                     continue
+                tbl_counter += 1
                 rows = []
                 for ri, row in enumerate(table):
                     cells = [str(c).strip() if c else "" for c in row]
@@ -881,7 +921,7 @@ class ContentTypeExtractor:
                     else:
                         rows.append(row_str)
                 parts.append(
-                    f"\n[TABLE {tbl_idx + 1}]\n" + "\n".join(rows) + "\n"
+                    f"\n[TABLE {tbl_counter}]\n" + "\n".join(rows) + "\n"
                 )
         except Exception as e:
             logger.debug(f"Structured table extraction error: {e}")
@@ -1241,18 +1281,32 @@ class EnhancedPDFLoader:
 
     @staticmethod
     def _extract_tables_as_text(plumber_page) -> str:
-        """Extract tables from a pdfplumber page as pipe-delimited text."""
+        """
+        Extract tables from a pdfplumber page as pipe-delimited text.
+        Near-empty tables (pdfplumber diagram-border artifacts) are skipped.
+        The first row of each table is treated as a header and followed by a
+        separator line so that detect_sections() can recognize the header row.
+        """
         parts: List[str] = []
+        tbl_counter = 0
         try:
             tables = plumber_page.extract_tables()
-            for tbl_idx, table in enumerate(tables):
+            for table in tables:
+                if not table or not ContentTypeExtractor._is_meaningful_table(table):
+                    continue
+                tbl_counter += 1
                 rows = []
-                for row in table:
+                for ri, row in enumerate(table):
                     cells = [str(c).strip() if c else "" for c in row]
-                    rows.append(" | ".join(cells))
+                    row_str = " | ".join(cells)
+                    if ri == 0:
+                        rows.append(row_str)
+                        rows.append("-" * len(row_str))
+                    else:
+                        rows.append(row_str)
                 if rows:
                     parts.append(
-                        f"\n[Table {tbl_idx + 1}]\n" + "\n".join(rows) + "\n"
+                        f"\n[Table {tbl_counter}]\n" + "\n".join(rows) + "\n"
                     )
         except Exception as e:
             logger.debug(f"Table extraction error (non-fatal): {e}")
@@ -1389,9 +1443,19 @@ class EnhancedPDFLoader:
             page_tag = f"[Page {pn + 1} | type={page_type}]"
             page_entry = f"\n{page_tag}\n{page_text}\n"
 
-            # Append structured table text (pdfplumber) for non-table pages
-            # (table pages already have structured extraction via content_extractor)
-            if page_type not in (PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM):
+            # Append structured table text (pdfplumber) only when the
+            # content_extractor has NOT already done table extraction for this
+            # page.  The content_extractor handles TABLE and MIXED pages when
+            # the classifier is active; double-appending would duplicate every
+            # table on those pages.
+            classifier_handled = (
+                content_extractor is not None
+                and class_result is not None
+                and page_type in (PageType.TABLE, PageType.MIXED)
+            )
+            if not classifier_handled and page_type not in (
+                PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM
+            ):
                 if pn in plumber_pages:
                     table_text = cls._extract_tables_as_text(plumber_pages[pn])
                     if table_text:
@@ -1504,9 +1568,11 @@ class SemanticChunker:
         self.chunk_size = chunk_size
         self.overlap = overlap
 
-    # ── Section detection (unchanged from V2) ───────────────────────────
+    # ── Section detection ────────────────────────────────────────────────────
 
     _section_patterns = [re.compile(p, re.MULTILINE) for p in SECTION_PATTERNS]
+    # Regex for identifying inline table markers (case-insensitive)
+    _TABLE_TITLE_RE = re.compile(r'^\[Table ', re.IGNORECASE)
 
     def detect_sections(self, text: str) -> List[DocumentSection]:
         sections: List[DocumentSection] = []
@@ -1523,15 +1589,21 @@ class SemanticChunker:
             for pat in self._section_patterns:
                 if pat.match(ls):
                     is_hdr = True
-                    level = (
-                        len(ls) - len(ls.lstrip("#")) if ls.startswith("#")
-                        else (1 if ls.isupper() else 2)
-                    )
+                    if ls.startswith("#"):
+                        level = len(ls) - len(ls.lstrip("#"))
+                    elif self._TABLE_TITLE_RE.match(ls):
+                        # Table markers are leaf-level (level 4) so they nest
+                        # inside numbered sections and preserve their hierarchy.
+                        level = 4
+                    elif ls.isupper():
+                        level = 1
+                    else:
+                        level = 2
                     break
             if is_hdr and len(ls) < 200:
                 if cur["content"].strip():
                     hier = [s["title"] for s in stack if s["title"]]
-                    stype = "table" if cur["title"].startswith("[Table ") else "text"
+                    stype = "table" if self._TABLE_TITLE_RE.match(cur["title"]) else "text"
                     sections.append(DocumentSection(
                         title=cur["title"],
                         content=cur["content"].strip(),
@@ -1548,7 +1620,7 @@ class SemanticChunker:
 
         if cur["content"].strip():
             hier = [s["title"] for s in stack if s["title"]]
-            stype = "table" if cur["title"].startswith("[Table ") else "text"
+            stype = "table" if self._TABLE_TITLE_RE.match(cur["title"]) else "text"
             sections.append(DocumentSection(
                 title=cur["title"],
                 content=cur["content"].strip(),
@@ -1702,6 +1774,91 @@ class SemanticChunker:
 
         return chunks
 
+    # Minimum number of dash characters required to recognise a separator line
+    # (e.g. "------") that separates a table header row from its data rows.
+    _TABLE_SEPARATOR_MIN_DASHES = 3
+
+    def _chunk_table_rows(
+        self,
+        text: str,
+        section_title: str,
+        section_hierarchy: List[str],
+        page_number: Optional[int],
+        target_size: int,
+    ) -> List[ChildChunk]:
+        """
+        Split a table section into child chunks by grouping complete rows.
+
+        Instead of sentence-tokenising (which arbitrarily breaks pipe-delimited
+        rows at '.' characters), this method treats each non-empty line as one
+        indivisible unit (a table row or header separator).
+
+        The header row + separator are detected and prepended to every chunk
+        after the first so that each child chunk is self-contained.
+        """
+        lines = [l for l in text.splitlines() if l.strip()]
+        if not lines:
+            return []
+
+        # Detect header block: first row + optional dashes-only separator line.
+        header_lines: List[str] = [lines[0]]
+        body_start = 1
+        if len(lines) > 1 and re.match(r'^[-\s|+]+$', lines[1]) and lines[1].count("-") >= self._TABLE_SEPARATOR_MIN_DASHES:
+            header_lines.append(lines[1])
+            body_start = 2
+
+        header_text = "\n".join(header_lines)
+        data_rows = lines[body_start:]
+
+        def _make_chunk(rows: List[str], sc: int) -> ChildChunk:
+            body = "\n".join(rows)
+            chunk_text = f"{header_text}\n{body}" if rows else header_text
+            chunk_text = chunk_text.strip()
+            return ChildChunk(
+                text=chunk_text,
+                enriched_text=chunk_text,   # filled later by ContextualEnricher
+                section_title=section_title,
+                section_hierarchy=list(section_hierarchy),
+                page_number=page_number,
+                chunk_type="table",
+                page_type=PageType.TABLE,
+                word_count=len(chunk_text.split()),
+                # sentence_count reused to store row count for table chunks
+                # (sentence_count is the field name defined by ChildChunk; we
+                # document here that for table sections it counts data rows).
+                sentence_count=len(rows) + len(header_lines),
+                start_char=sc,
+                end_char=sc + len(chunk_text),
+                parent_id="",
+                child_index=0,
+            )
+
+        # If table fits entirely within target_size, return as a single chunk.
+        if len(text.strip()) <= target_size or not data_rows:
+            return [_make_chunk(data_rows, 0)]
+
+        # Otherwise split data rows into chunks of approximately target_size.
+        chunks: List[ChildChunk] = []
+        current_rows: List[str] = []
+        current_len = len(header_text) + 1
+        char_offset = 0
+
+        for row in data_rows:
+            row_len = len(row) + 1   # +1 for newline
+            if current_len + row_len > target_size and current_rows:
+                c = _make_chunk(current_rows, char_offset)
+                chunks.append(c)
+                char_offset += len(c.text) + 1
+                current_rows = []
+                current_len = len(header_text) + 1
+            current_rows.append(row)
+            current_len += row_len
+
+        if current_rows:
+            chunks.append(_make_chunk(current_rows, char_offset))
+
+        return chunks or [_make_chunk(data_rows, 0)]
+
     def chunk_text(
         self,
         text: str,
@@ -1716,6 +1873,13 @@ class SemanticChunker:
             return []
         if section_hierarchy is None:
             section_hierarchy = [section_title] if section_title else ["Document"]
+
+        # Table sections must not go through sent_tokenize: rows would be split
+        # at '.' characters inside cell values.  Use row-based chunking instead.
+        if chunk_type == "table":
+            return self._chunk_table_rows(
+                text, section_title, section_hierarchy, page_number, target_size
+            )
 
         raw_sents = sent_tokenize(text)
         sentences: List[str] = []
