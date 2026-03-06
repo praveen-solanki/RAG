@@ -1313,70 +1313,76 @@ class OllamaBGEM3Embedder:
             logger.error(f"✗ Cannot connect to Ollama: {e}")
             raise
 
-    def encode(self, texts: List[str], batch_size: int = 8,
-               show_progress_bar: bool = False) -> List[Optional[List[float]]]:
+    def encode(self, texts: List[str], show_progress_bar: bool = False,
+               **_kwargs) -> List[Optional[List[float]]]:
+        """
+        Encode *texts* sequentially, one HTTP request per text.
+
+        ``batch_size`` is intentionally not a parameter: Ollama's
+        ``/api/embeddings`` endpoint accepts only a single ``prompt`` string
+        per request, so real batching is not possible here.  Any caller that
+        previously passed ``batch_size=N`` can be updated to remove that
+        keyword; the ``**_kwargs`` absorber keeps existing call-sites working
+        without a change.
+        """
         embeddings: List[Optional[List[float]]] = []
         skipped = 0
         patched = 0
 
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            for text in batch:
-                safe = text if len(text) <= MAX_EMBED_CHARS else text[:MAX_EMBED_CHARS]
-                embedding = None
-                for attempt in range(3):
-                    try:
-                        r = requests.post(
-                            f"{self.base_url}/api/embeddings",
-                            json={"model": self.model, "prompt": safe},
-                            timeout=60,
-                        )
-                        if r.status_code == 200:
-                            data = r.json()
-                            if "embedding" in data:
-                                raw = data["embedding"]
-                                if not all(math.isfinite(x) for x in raw):
-                                    arr = np.array(raw, dtype=np.float64)
-                                    mask = ~np.isfinite(arr)
-                                    logger.warning(
-                                        f"Embedding attempt {attempt+1}: "
-                                        f"{mask.sum()} non-finite component(s) → 0.0"
-                                    )
-                                    arr[mask] = 0.0
-                                    raw = arr.tolist()
-                                    patched += 1
-                                embedding = raw
-                                break
-                            else:
-                                logger.warning(
-                                    f"Attempt {attempt+1}: no 'embedding' key: "
-                                    f"{r.text[:100]}"
-                                )
-                        else:
-                            body = r.text
-                            logger.warning(
-                                f"Attempt {attempt+1} HTTP {r.status_code}: "
-                                f"{body[:100]}"
-                            )
-                            if "unsupported value" in body:
-                                break
-                    except Exception as e:
-                        logger.warning(f"Attempt {attempt+1} error: {e}")
-                    if attempt < 2:
-                        time.sleep(2 ** attempt)
-
-                if embedding is None:
-                    skipped += 1
-                    logger.warning(
-                        f"Failed to embed chunk after 3 attempts "
-                        f"({len(safe)} chars). Skipped so far: {skipped}"
+        for i, text in enumerate(texts):
+            safe = text if len(text) <= MAX_EMBED_CHARS else text[:MAX_EMBED_CHARS]
+            embedding = None
+            for attempt in range(3):
+                try:
+                    r = requests.post(
+                        f"{self.base_url}/api/embeddings",
+                        json={"model": self.model, "prompt": safe},
+                        timeout=60,
                     )
-                embeddings.append(embedding)
+                    if r.status_code == 200:
+                        data = r.json()
+                        if "embedding" in data:
+                            raw = data["embedding"]
+                            if not all(math.isfinite(x) for x in raw):
+                                arr = np.array(raw, dtype=np.float64)
+                                mask = ~np.isfinite(arr)
+                                logger.warning(
+                                    f"Embedding attempt {attempt+1}: "
+                                    f"{mask.sum()} non-finite component(s) → 0.0"
+                                )
+                                arr[mask] = 0.0
+                                raw = arr.tolist()
+                                patched += 1
+                            embedding = raw
+                            break
+                        else:
+                            logger.warning(
+                                f"Attempt {attempt+1}: no 'embedding' key: "
+                                f"{r.text[:100]}"
+                            )
+                    else:
+                        body = r.text
+                        logger.warning(
+                            f"Attempt {attempt+1} HTTP {r.status_code}: "
+                            f"{body[:100]}"
+                        )
+                        if "unsupported value" in body:
+                            break
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt+1} error: {e}")
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
 
-            if show_progress_bar and (i // batch_size) % 10 == 0:
-                logger.info(
-                    f"Encoded {min(i + batch_size, len(texts))}/{len(texts)}"
+            if embedding is None:
+                skipped += 1
+                logger.warning(
+                    f"Failed to embed chunk after 3 attempts "
+                    f"({len(safe)} chars). Skipped so far: {skipped}"
                 )
+            embeddings.append(embedding)
+
+            if show_progress_bar and i % 10 == 0:
+                logger.info(f"Encoded {i + 1}/{len(texts)}")
 
         if patched:
             logger.warning(
@@ -1410,7 +1416,7 @@ class EnhancedPDFLoader:
     def _is_toc_page(text: str) -> bool:
         stripped = text.strip()
         if len(stripped) < TOC_MIN_CONTENT_CHARS:
-            return True
+            return False   # too short to be a TOC page
         if len(stripped) > TOC_MAX_CONTENT_CHARS:
             return False
         lines = [l for l in stripped.splitlines() if l.strip()]
@@ -1683,9 +1689,15 @@ class AdvancedDocumentLoader:
         if doc.tables:
             meta["has_tables"] = True
             meta["tables_count"] = len(doc.tables)
-            for table in doc.tables:
+            for tbl_idx, table in enumerate(doc.tables, 1):
+                rows = []
                 for row in table.rows:
-                    parts.append(" | ".join(c.text for c in row.cells))
+                    cells = [c.text.strip() for c in row.cells]
+                    rows.append(" | ".join(cells))
+                if rows:
+                    parts.append(
+                        f"\n[Table {tbl_idx}]\n" + "\n".join(rows) + "\n"
+                    )
         return "\n".join(parts), meta
 
     @staticmethod
@@ -2284,8 +2296,13 @@ class BM25Index:
         all_tokens = sorted({t for doc in self.tokenized_corpus for t in doc})
         self.vocabulary = {t: i for i, t in enumerate(all_tokens)}
         N = len(self.tokenized_corpus)
+        # Build document-frequency counter in O(total_tokens) instead of O(vocab × docs)
+        df_counter: Dict[str, int] = defaultdict(int)
+        for doc in self.tokenized_corpus:
+            for token in set(doc):
+                df_counter[token] += 1
         for token in self.vocabulary:
-            df = sum(1 for doc in self.tokenized_corpus if token in doc)
+            df = df_counter.get(token, 0)
             self.token_idf[token] = np.log((N - df + 0.5) / (df + 0.5) + 1)
         logger.info(f"  ✓ BM25 vocabulary: {len(self.vocabulary)} tokens")
 
@@ -2357,6 +2374,11 @@ def _ensure_collection(
 # ═══════════════════════════════════════════════════════════════════════════
 # Main pipeline
 # ═══════════════════════════════════════════════════════════════════════════
+
+def _jsonl_safe(v):
+    """Return *v* as-is if it is a JSON-native type, else coerce to str."""
+    return v if isinstance(v, (str, int, float, bool, list, dict)) or v is None else str(v)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -2455,209 +2477,198 @@ def main():
             ocr_engine=args.ocr_engine,
         )
 
-    # ── Accumulators ─────────────────────────────────────────────────────
+    # ── Counters ─────────────────────────────────────────────────────────
     total_files    = 0
     total_children = 0
     total_parents  = 0
-    all_child_points: List[Tuple[Dict, str]] = []   # (point_dict, raw_text)
-    all_parent_points: List[Tuple[Dict, str]] = []
 
-    logger.info("\nPhase 1: Loading and chunking documents...")
+    # ── Temporary JSONL for two-pass ingestion ────────────────────────────
+    # Pass 1 serialises every chunk (metadata + text, NO embeddings) to this
+    # file so that memory only ever holds one file's worth of chunks at a time.
+    # Pass 2 streams it back, embeds one chunk per line, and upserts immediately.
+    # The file is placed next to the BM25 output so both land in the same
+    # directory (which is guaranteed to be writable) and are easy to locate
+    # together if manual inspection is needed.
+    jsonl_path = Path(bm25_output).with_suffix(".chunks.jsonl")
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
 
-    for root, _, files in os.walk(data_dir):
-        for file in files:
-            if not file.lower().endswith((".pdf", ".docx", ".txt")):
-                continue
+    # Raw child texts are still collected in a list so BM25 can be fitted
+    # on the full corpus in one shot; these are plain strings (no embeddings)
+    # so their memory footprint is orders of magnitude smaller than float lists.
+    all_child_raw_texts: List[str] = []
 
-            path = os.path.join(root, file)
-            logger.info(f"\n→ Processing: {file}")
+    # ════════════════════════════════════════════════════════════════════
+    # PASS 1 — load, chunk, deduplicate, serialise to JSONL
+    # ════════════════════════════════════════════════════════════════════
+    logger.info("\nPass 1: Loading and chunking documents → JSONL...")
 
-            try:
-                h = file_hash(path)
+    with open(jsonl_path, "w", encoding="utf-8") as jsonl_f:
 
-                # Skip already-indexed files (check children collection)
-                if already_indexed(client, children_col, h):
-                    logger.info("  ⊘ Already indexed — skipping")
+        for root, _, files in os.walk(data_dir):
+            for file in files:
+                if not file.lower().endswith((".pdf", ".docx", ".txt")):
                     continue
 
-                # Load document
-                text, doc_metadata = AdvancedDocumentLoader.load(
-                    path,
-                    classifier=page_classifier,
-                    content_extractor=ct_extractor,
-                )
-                if not text or len(text.strip()) < MIN_CHUNK_SIZE:
-                    logger.info("  ⊘ Empty or too short after extraction")
-                    continue
+                path = os.path.join(root, file)
+                logger.info(f"\n→ Processing: {file}")
 
-                # Detect sections
-                sections = chunker.detect_sections(text) if ENABLE_SECTION_AWARE else [
-                    DocumentSection("Document", text, 0)
-                ]
-                logger.info(f"  ✓ {len(sections)} sections detected")
+                try:
+                    h = file_hash(path)
 
-                # Build parent-child hierarchy
-                parents, children = pc_builder.build(sections, file_hash_value=h)
-                logger.info(
-                    f"  ✓ {len(parents)} parent chunks → {len(children)} child chunks"
-                )
-
-                if not children:
-                    continue
-
-                # Contextual enrichment
-                if ENABLE_CONTEXT_ENRICHMENT:
-                    enricher.enrich(children, file)
-                    logger.info(f"  ✓ Context enrichment applied ({args.context_mode} mode)")
-
-                # MinHash deduplication (global, cross-file)
-                accepted_children: List[ChildChunk] = []
-                accepted_parents: Set[str] = set()
-                dedup_removed = 0
-
-                for child in children:
-                    if deduplicator is not None:
-                        if deduplicator.is_duplicate(child.text):
-                            dedup_removed += 1
-                            continue
-                    accepted_children.append(child)
-                    accepted_parents.add(child.parent_id)
-
-                if dedup_removed:
-                    logger.info(f"  ⊘ Removed {dedup_removed} near-duplicate child chunks")
-
-                # Filter parents: only keep those that have accepted children
-                accepted_parent_objs = [
-                    p for p in parents if p.parent_id in accepted_parents
-                ]
-
-                logger.info(
-                    f"  ✓ Accepted: {len(accepted_children)} child chunks, "
-                    f"{len(accepted_parent_objs)} parent chunks"
-                )
-
-                if not accepted_children:
-                    continue
-
-                # ── Embed children (use enriched text for embedding) ─────
-                child_texts_embed = [c.enriched_text for c in accepted_children]
-                logger.info(
-                    f"  ⚡ Embedding {len(child_texts_embed)} child chunks..."
-                )
-                if isinstance(embedder, OllamaBGEM3Embedder):
-                    child_embeddings = embedder.encode(child_texts_embed, batch_size=8)
-                else:
-                    raw = embedder.encode(
-                        child_texts_embed,
-                        batch_size=32,
-                        show_progress_bar=False,
-                        convert_to_numpy=True,
-                    )
-                    child_embeddings = [e.tolist() for e in raw]
-
-                # ── Embed parents ─────────────────────────────────────────
-                parent_texts = [p.text for p in accepted_parent_objs]
-                logger.info(
-                    f"  ⚡ Embedding {len(parent_texts)} parent chunks..."
-                )
-                if isinstance(embedder, OllamaBGEM3Embedder):
-                    parent_embeddings = embedder.encode(parent_texts, batch_size=8)
-                else:
-                    raw = embedder.encode(
-                        parent_texts,
-                        batch_size=32,
-                        show_progress_bar=False,
-                        convert_to_numpy=True,
-                    )
-                    parent_embeddings = [e.tolist() for e in raw]
-
-                # ── Build child point records ─────────────────────────────
-                folder = os.path.relpath(root, data_dir)
-                file_type = Path(file).suffix.lower()
-
-                for i, (child, emb) in enumerate(
-                        zip(accepted_children, child_embeddings)):
-                    if emb is None:
-                        logger.warning(f"  ⚠ Skipping child {i} — embedding failed")
+                    # Skip already-indexed files (check children collection)
+                    if already_indexed(client, children_col, h):
+                        logger.info("  ⊘ Already indexed — skipping")
                         continue
-                    cid = str(uuid.uuid5(
-                        uuid.NAMESPACE_DNS, f"{h}_child_{i}"
-                    ))
-                    point: Dict = {
-                        "id": cid,
-                        "vector": emb,
-                        "payload": {
-                            "content": child.text,            # raw text for display
-                            "enriched_content": child.enriched_text,  # embedded text
-                            "parent_id": child.parent_id,
-                            "child_index": child.child_index,
-                            "source_path": path,
-                            "filename": file,
-                            "folder": folder,
-                            "file_type": file_type,
-                            "file_hash": h,
-                            "chunk_type": child.chunk_type,
-                            "page_type": child.page_type,     # classified content type
-                            "section_title": child.section_title,
-                            "section_hierarchy": child.section_hierarchy,
-                            "word_count": child.word_count,
-                            "sentence_count": child.sentence_count,
-                            "start_char": child.start_char,
-                            "end_char": child.end_char,
-                            **doc_metadata,
-                        },
-                    }
-                    all_child_points.append((point, child.text))
-                    total_children += 1
 
-                # ── Build parent point records ────────────────────────────
-                pid_to_emb = {
-                    p.parent_id: emb
-                    for p, emb in zip(accepted_parent_objs, parent_embeddings)
-                }
-                for parent in accepted_parent_objs:
-                    emb = pid_to_emb.get(parent.parent_id)
-                    if emb is None:
+                    # Load document
+                    text, doc_metadata = AdvancedDocumentLoader.load(
+                        path,
+                        classifier=page_classifier,
+                        content_extractor=ct_extractor,
+                    )
+                    if not text or len(text.strip()) < MIN_CHUNK_SIZE:
+                        logger.info("  ⊘ Empty or too short after extraction")
                         continue
-                    point = {
-                        "id": parent.parent_id,
-                        "vector": emb,
-                        "payload": {
-                            "content": parent.text,
-                            "source_path": path,
-                            "filename": file,
-                            "folder": folder,
-                            "file_type": file_type,
-                            "file_hash": h,
-                            "chunk_type": parent.chunk_type,
-                            "page_type": parent.page_type,    # classified content type
-                            "section_title": parent.section_title,
+
+                    # Detect sections
+                    sections = chunker.detect_sections(text) if ENABLE_SECTION_AWARE else [
+                        DocumentSection("Document", text, 0)
+                    ]
+                    logger.info(f"  ✓ {len(sections)} sections detected")
+
+                    # Build parent-child hierarchy
+                    parents, children = pc_builder.build(sections, file_hash_value=h)
+                    logger.info(
+                        f"  ✓ {len(parents)} parent chunks → {len(children)} child chunks"
+                    )
+
+                    if not children:
+                        continue
+
+                    # Contextual enrichment
+                    if ENABLE_CONTEXT_ENRICHMENT:
+                        enricher.enrich(children, file)
+                        logger.info(
+                            f"  ✓ Context enrichment applied ({args.context_mode} mode)"
+                        )
+
+                    # MinHash deduplication (global, cross-file)
+                    accepted_children: List[ChildChunk] = []
+                    accepted_parents: Set[str] = set()
+                    dedup_removed = 0
+
+                    for child in children:
+                        if deduplicator is not None:
+                            if deduplicator.is_duplicate(child.text):
+                                dedup_removed += 1
+                                continue
+                        accepted_children.append(child)
+                        accepted_parents.add(child.parent_id)
+
+                    if dedup_removed:
+                        logger.info(
+                            f"  ⊘ Removed {dedup_removed} near-duplicate child chunks"
+                        )
+
+                    # Filter parents: only keep those that have accepted children
+                    accepted_parent_objs = [
+                        p for p in parents if p.parent_id in accepted_parents
+                    ]
+
+                    logger.info(
+                        f"  ✓ Accepted: {len(accepted_children)} child chunks, "
+                        f"{len(accepted_parent_objs)} parent chunks"
+                    )
+
+                    if not accepted_children:
+                        continue
+
+                    folder   = os.path.relpath(root, data_dir)
+                    file_type = Path(file).suffix.lower()
+
+                    # Serialise child records to JSONL (no embeddings yet)
+                    for i, child in enumerate(accepted_children):
+                        cid = str(uuid.uuid5(
+                            uuid.NAMESPACE_DNS, f"{h}_child_{i}"
+                        ))
+                        payload = {
+                            "content":            child.text,
+                            "enriched_content":   child.enriched_text,
+                            "parent_id":          child.parent_id,
+                            "child_index":        child.child_index,
+                            "source_path":        path,
+                            "filename":           file,
+                            "folder":             folder,
+                            "file_type":          file_type,
+                            "file_hash":          h,
+                            "chunk_type":         child.chunk_type,
+                            "page_type":          child.page_type,
+                            "section_title":      child.section_title,
+                            "section_hierarchy":  child.section_hierarchy,
+                            "word_count":         child.word_count,
+                            "sentence_count":     child.sentence_count,
+                            "start_char":         child.start_char,
+                            "end_char":           child.end_char,
+                            **{k: _jsonl_safe(v) for k, v in doc_metadata.items()},
+                        }
+                        record = {
+                            "chunk_type": "child",
+                            "id":         cid,
+                            "payload":    payload,
+                            "raw_text":   child.text,
+                            "embed_text": child.enriched_text,
+                        }
+                        jsonl_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        all_child_raw_texts.append(child.text)
+                        total_children += 1
+
+                    # Serialise parent records to JSONL
+                    for parent in accepted_parent_objs:
+                        payload = {
+                            "content":           parent.text,
+                            "source_path":       path,
+                            "filename":          file,
+                            "folder":            folder,
+                            "file_type":         file_type,
+                            "file_hash":         h,
+                            "chunk_type":        parent.chunk_type,
+                            "page_type":         parent.page_type,
+                            "section_title":     parent.section_title,
                             "section_hierarchy": parent.section_hierarchy,
-                            "word_count": parent.word_count,
-                            "start_char": parent.start_char,
-                            "end_char": parent.end_char,
-                            **doc_metadata,
-                        },
-                    }
-                    all_parent_points.append((point, parent.text))
-                    total_parents += 1
+                            "word_count":        parent.word_count,
+                            "start_char":        parent.start_char,
+                            "end_char":          parent.end_char,
+                            **{k: _jsonl_safe(v) for k, v in doc_metadata.items()},
+                        }
+                        record = {
+                            "chunk_type": "parent",
+                            "id":         parent.parent_id,
+                            "payload":    payload,
+                            "embed_text": parent.text,
+                        }
+                        jsonl_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        total_parents += 1
 
-                total_files += 1
+                    total_files += 1
 
-            except Exception as e:
-                logger.error(f"  ✗ Error processing {file}: {e}", exc_info=True)
-                continue
+                except Exception as e:
+                    logger.error(f"  ✗ Error processing {file}: {e}", exc_info=True)
+                    continue
 
-    if not all_child_points:
+    if total_children == 0:
         logger.warning("No documents to index!")
+        jsonl_path.unlink(missing_ok=True)
         return
 
-    # ── Phase 2: BM25 on child chunks ─────────────────────────────────────
-    all_child_texts = [text for _, text in all_child_points]
+    # ════════════════════════════════════════════════════════════════════
+    # BM25 fit (between passes — uses only lightweight text strings)
+    # ════════════════════════════════════════════════════════════════════
     logger.info(
-        f"\nPhase 2: Building BM25 index for {len(all_child_texts)} child chunks..."
+        f"\nBM25 fit: {len(all_child_raw_texts)} child chunks..."
     )
-    bm25_index.fit(all_child_texts)
+    bm25_index.fit(all_child_raw_texts)
+    del all_child_raw_texts          # release memory before embedding pass
+
     bm25_data = {
         "vocabulary": bm25_index.vocabulary,
         "token_idf": {k: float(v) for k, v in bm25_index.token_idf.items()},
@@ -2667,55 +2678,131 @@ def main():
         json.dump(bm25_data, f)
     logger.info(f"  ✓ Saved BM25 index → {bm25_output}")
 
-    # ── Phase 3: Upload children to Qdrant ───────────────────────────────
+    # ════════════════════════════════════════════════════════════════════
+    # PASS 2 — stream JSONL, embed one chunk at a time, upsert immediately
+    # Peak RAM ≈ one embedding vector (no accumulation of all vectors)
+    # ════════════════════════════════════════════════════════════════════
     logger.info(
-        f"\nPhase 3: Uploading {len(all_child_points)} child chunks "
-        f"to '{children_col}'..."
+        f"\nPass 2: Embedding {total_children} child + {total_parents} parent "
+        f"chunks and upserting to Qdrant..."
     )
-    child_structs: List[PointStruct] = []
-    for pd, chunk_text in all_child_points:
-        sv = bm25_index.get_sparse_vector(chunk_text)
-        child_structs.append(PointStruct(
-            id=pd["id"],
-            vector={"dense": pd["vector"], "bm25": sv},
-            payload=pd["payload"],
-        ))
 
-    batch_size = 100
-    for i in range(0, len(child_structs), batch_size):
-        client.upsert(
-            collection_name=children_col,
-            points=child_structs[i:i + batch_size],
-            wait=True,
-        )
-        logger.info(
-            f"  ✓ Children batch "
-            f"{i // batch_size + 1}/{math.ceil(len(child_structs) / batch_size)}"
-        )
+    UPSERT_BATCH = 100          # how many PointStructs to batch per upsert call
+    child_batch:  List[PointStruct] = []
+    parent_batch: List[PointStruct] = []
+    child_batches_sent  = 0
+    parent_batches_sent = 0
+    embed_skipped       = 0
+    pass2_ok = False
 
-    # ── Phase 4: Upload parents to Qdrant ────────────────────────────────
-    logger.info(
-        f"\nPhase 4: Uploading {len(all_parent_points)} parent chunks "
-        f"to '{parents_col}'..."
-    )
-    parent_structs: List[PointStruct] = []
-    for pd, _ in all_parent_points:
-        parent_structs.append(PointStruct(
-            id=pd["id"],
-            vector={"dense": pd["vector"]},
-            payload=pd["payload"],
-        ))
+    try:
+        with open(jsonl_path, encoding="utf-8") as jsonl_f:
+            for line in jsonl_f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    logger.warning(f"Corrupt JSONL line — skipping: {exc}")
+                    continue
 
-    for i in range(0, len(parent_structs), batch_size):
-        client.upsert(
-            collection_name=parents_col,
-            points=parent_structs[i:i + batch_size],
-            wait=True,
-        )
-        logger.info(
-            f"  ✓ Parents batch "
-            f"{i // batch_size + 1}/{math.ceil(len(parent_structs) / batch_size)}"
-        )
+                embed_text = record.get("embed_text", "")
+                if not embed_text:
+                    embed_skipped += 1
+                    continue
+
+                # Embed (one text → one HTTP request; no in-memory accumulation)
+                if isinstance(embedder, OllamaBGEM3Embedder):
+                    emb_list = embedder.encode([embed_text])
+                else:
+                    raw = embedder.encode(
+                        [embed_text],
+                        show_progress_bar=False,
+                        convert_to_numpy=True,
+                    )
+                    emb_list = [raw[0].tolist()]
+
+                emb = emb_list[0]
+                if emb is None:
+                    embed_skipped += 1
+                    logger.warning(
+                        f"  ⚠ Embedding failed for {record['chunk_type']} "
+                        f"id={record['id'][:8]}… — skipping"
+                    )
+                    continue
+
+                if record["chunk_type"] == "child":
+                    sv = bm25_index.get_sparse_vector(record.get("raw_text", embed_text))
+                    child_batch.append(PointStruct(
+                        id=record["id"],
+                        vector={"dense": emb, "bm25": sv},
+                        payload=record["payload"],
+                    ))
+                    if len(child_batch) >= UPSERT_BATCH:
+                        client.upsert(
+                            collection_name=children_col,
+                            points=child_batch,
+                            wait=True,
+                        )
+                        child_batches_sent += 1
+                        logger.info(
+                            f"  ✓ Children batch {child_batches_sent} "
+                            f"({child_batches_sent * UPSERT_BATCH} upserted so far)"
+                        )
+                        child_batch.clear()
+
+                else:   # "parent"
+                    parent_batch.append(PointStruct(
+                        id=record["id"],
+                        vector={"dense": emb},
+                        payload=record["payload"],
+                    ))
+                    if len(parent_batch) >= UPSERT_BATCH:
+                        client.upsert(
+                            collection_name=parents_col,
+                            points=parent_batch,
+                            wait=True,
+                        )
+                        parent_batches_sent += 1
+                        logger.info(
+                            f"  ✓ Parents batch {parent_batches_sent} "
+                            f"({parent_batches_sent * UPSERT_BATCH} upserted so far)"
+                        )
+                        parent_batch.clear()
+
+        # Flush remaining partial batches
+        if child_batch:
+            client.upsert(
+                collection_name=children_col,
+                points=child_batch,
+                wait=True,
+            )
+            child_batches_sent += 1
+            logger.info(f"  ✓ Children final batch ({len(child_batch)} points)")
+
+        if parent_batch:
+            client.upsert(
+                collection_name=parents_col,
+                points=parent_batch,
+                wait=True,
+            )
+            parent_batches_sent += 1
+            logger.info(f"  ✓ Parents final batch ({len(parent_batch)} points)")
+
+        pass2_ok = True
+
+    finally:
+        # Remove the temporary JSONL only on clean success so that the file is
+        # available for debugging if Pass 2 fails partway through.
+        if pass2_ok:
+            jsonl_path.unlink(missing_ok=True)
+            logger.info(f"  ✓ Removed temporary JSONL: {jsonl_path}")
+        else:
+            logger.warning(
+                f"  ⚠ Pass 2 did not complete cleanly — "
+                f"temporary JSONL kept for inspection: {jsonl_path}"
+            )
 
     # ── Summary ──────────────────────────────────────────────────────────
     logger.info("\n" + "=" * 80)
@@ -2724,6 +2811,8 @@ def main():
     logger.info(f"✓ Files processed       : {total_files}")
     logger.info(f"✓ Parent chunks indexed : {total_parents}")
     logger.info(f"✓ Child chunks indexed  : {total_children}")
+    if embed_skipped:
+        logger.warning(f"⚠ Embedding failures    : {embed_skipped}")
     if total_files > 0:
         logger.info(
             f"✓ Avg children/file     : {total_children / total_files:.1f}"
