@@ -168,13 +168,18 @@ class OllamaBGEM3:
         logger.warning(f"✗ Ollama unavailable at {self.base_url}")
         return False
 
-    def embed_query(self, text: str) -> Optional[List[float]]:
+    def _embed(self, text: str, model: str) -> Optional[List[float]]:
+        """
+        Call Ollama /api/embeddings with an explicit model name.
+        Used internally so that embed_query() and rerank() can each use
+        their own configured model independently.
+        """
         if not self.available:
             return None
         try:
             r = requests.post(
                 f"{self.base_url}/api/embeddings",
-                json={"model": self.model, "prompt": text},
+                json={"model": model, "prompt": text},
                 timeout=30,
             )
             if r.status_code == 200:
@@ -186,14 +191,23 @@ class OllamaBGEM3:
                         vec = arr.tolist()
                     return vec
         except Exception as e:
-            logger.warning(f"Query embedding error: {e}")
+            logger.warning(f"Embedding error (model={model}): {e}")
         return None
 
+    def embed_query(self, text: str) -> Optional[List[float]]:
+        """Embed `text` using the primary embedding model (self.model)."""
+        return self._embed(text, self.model)
+
     def rerank(self, query: str, documents: List[str]) -> List[float]:
-        """Cosine-similarity reranking using BGE-M3 embeddings."""
+        """
+        Cosine-similarity reranking.
+        Uses `self.reranker_model` (which may differ from `self.model`)
+        so that a dedicated reranking model can be configured independently
+        via the OLLAMA_RERANKER_MODEL CONFIG variable.
+        """
         scores: List[float] = []
         try:
-            q_vec = self.embed_query(query)
+            q_vec = self._embed(query, self.reranker_model)
             if q_vec is None:
                 return [0.0] * len(documents)
             q_arr = np.array(q_vec, dtype=np.float64)
@@ -203,8 +217,7 @@ class OllamaBGEM3:
 
         for doc in documents:
             try:
-                # Use dedicated reranker model for scoring (may differ from embed model)
-                d_vec = self.embed_query(doc[:MAX_RERANK_CHARS])
+                d_vec = self._embed(doc[:MAX_RERANK_CHARS], self.reranker_model)
                 if d_vec is None:
                     scores.append(0.0)
                     continue

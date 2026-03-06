@@ -1073,8 +1073,8 @@ class MinHashDeduplicator:
 class OllamaBGEM3Embedder:
     """BGE-M3 embedder via Ollama with retry + NaN/Inf patching."""
 
-    def __init__(self, base_url: str = "http://localhost:11434",
-                 model: str = "bge-m3"):
+    def __init__(self, base_url: str = OLLAMA_URL,
+                 model: str = OLLAMA_EMBED_MODEL):
         self.base_url = base_url
         self.model = model
         self.dimension = 1024
