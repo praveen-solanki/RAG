@@ -141,7 +141,8 @@ DATA_DIR       = os.environ.get(
     "RAG_DATA_DIR",
     r"/home/olj3kor/praveen/Image_dataset_generation/pdfs/standards",
 )
-COLLECTION     = "rag_v3"          # base name; _children / _parents suffixes added automatically
+# Collection name for the AUTOSAR dataset.  Override with --collection <name> or RAG_COLLECTION env var.
+COLLECTION     = os.environ.get("RAG_COLLECTION", "autosar_v3")   # _children / _parents suffixes added automatically
 QDRANT_URL     = "http://localhost:7333"
 
 # ── Embedding (Ollama) ──────────────────────────────────────────────────────
@@ -183,52 +184,84 @@ PAGE_RENDER_JPEG_QUALITY  = 85
 MAX_VISION_RESPONSE_CHARS = 800
 VISION_API_TIMEOUT        = 60
 
-# Chunking parameters
-CHILD_CHUNK_SIZE    = 512          # child chunk target size (chars)
-CHILD_CHUNK_OVERLAP = 256
-PARENT_CHUNK_SIZE   = 2048         # parent chunk target size (chars)
-PARENT_CHUNK_OVERLAP= 256
-MIN_CHUNK_SIZE      = 80
+# ── Chunking — tuned for AUTOSAR specifications ──────────────────────────────
+# AUTOSAR documents contain dense requirement blocks (200-500 chars each) grouped
+# inside numbered sub-sections.  A child size of ~800 chars captures 1-3 full
+# requirement items; a parent size of ~3 500 chars covers a complete sub-section.
+CHILD_CHUNK_SIZE    = 800          # child chunk target size (chars)
+CHILD_CHUNK_OVERLAP = 200          # enough to overlap one requirement item
+PARENT_CHUNK_SIZE   = 3500         # parent chunk target size (chars)
+PARENT_CHUNK_OVERLAP= 350          # ~10 % of parent
+MIN_CHUNK_SIZE      = 60           # don't discard short requirement tags / IDs
 
 # Semantic chunking
+# AUTOSAR paragraphs are highly cohesive; use a lower threshold so only clear
+# topic shifts (e.g. concept description → rationale table) trigger a split.
 ENABLE_SEMANTIC_CHUNKING   = True
-SEMANTIC_SPLIT_THRESHOLD   = 0.35  # cosine sim below this → semantic boundary
+SEMANTIC_SPLIT_THRESHOLD   = 0.25  # cosine sim below this → semantic boundary
 SEMANTIC_WINDOW_SIZE       = 3     # sentences per window for sim computation
 
 # Contextual enrichment
 ENABLE_CONTEXT_ENRICHMENT  = True
-CONTEXT_NEIGHBOUR_SENTS    = 1     # sentences from prev/next chunk to include in template context
+# Two neighbouring sentences give enough surrounding context for requirement items
+CONTEXT_NEIGHBOUR_SENTS    = 2
 
 # MinHash dedup
 ENABLE_MINHASH_DEDUP  = True
 MINHASH_NUM_PERM      = 128        # number of permutations
-MINHASH_BANDS         = 32         # LSH bands (threshold ≈ (1/bands)^(1/rows))
-MINHASH_ROWS          = 4          # rows per band  → threshold ≈ 0.83
-MINHASH_SHINGLE_SIZE  = 3          # character n-grams for shingling
+# AUTOSAR docs reuse requirement-header boilerplate; 4-char shingles are more
+# discriminative than 3-char shingles for multi-word technical terms.
+MINHASH_BANDS         = 25         # LSH bands → dedup threshold ≈ (1/25)^(1/5) ≈ 0.83
+MINHASH_ROWS          = 5          # rows per band
+MINHASH_SHINGLE_SIZE  = 4          # character n-grams for shingling
 
 # ── PDF extraction ───────────────────────────────────────────────────────────
 ENABLE_OCR_FALLBACK   = True       # use OCR_ENGINE if tier-1/2 yield sparse text
-OCR_TRIGGER_CHARS     = 80         # page chars below this triggers tier-2 / tier-3
+# AUTOSAR diagram/figure pages often contain very little text alongside an image.
+# Raise the threshold slightly so OCR is triggered for those pages.
+OCR_TRIGGER_CHARS     = 120        # page chars below this triggers tier-2 / tier-3
 
-# TOC detection (inherited from V2)
+# TOC detection
+# AUTOSAR Table-of-Contents pages can be very long (many deeply-nested sections).
+# Raise TOC_MAX_CONTENT_CHARS so long TOC pages are still detected and skipped.
 TOC_LINE_RATIO        = 0.50
 TOC_MIN_CONTENT_CHARS = 50
 TOC_MIN_LINE_COUNT    = 5
-TOC_MAX_CONTENT_CHARS = 800
+TOC_MAX_CONTENT_CHARS = 5000       # AUTOSAR TOCs can span ~100 entries (~5 000 chars)
 
 # Embedding safety
-MAX_EMBED_CHARS = 4000
+# Parent chunks are now up to 3 500 chars; allow the embedder to see the full text.
+MAX_EMBED_CHARS = 6000
 
 # Section detection
+# AUTOSAR documents use deep numbered hierarchies and tagged requirement IDs.
+# Patterns ordered from most-specific (AUTOSAR) to most-general.
 ENABLE_SECTION_AWARE = True
 SECTION_PATTERNS = [
+    # AUTOSAR deep-numbered section headers: "10.3.4.2 Module Overview"
+    # or "10.3.4.2 [SWS_Os_00042] Some Requirement Title".
+    # (?:[A-Z]|\[) is explicit: the section title starts with a capital letter
+    # OR an opening bracket (requirement-ID-prefixed section titles).
+    r'^\d+(\.\d+){1,5}\s+(?:[A-Z]|\[)',
+    # AUTOSAR tagged requirement IDs used as standalone header lines:
+    # [SWS_Os_00042], [SRS_ETHTSYN_00001], [ECUC_Com_00012], [AP_SomeModule_00001] …
+    # Module names are CamelCase (Os, LinIf) or ALL_CAPS (ETHTSYN).
+    # Underscores within the module portion are intentionally allowed to cover
+    # compound module names such as [SWS_Lin_Interface_00001].
+    r'^\[(?:SWS|SRS|RS|ECUC|TPS|CP|AP|ASWS|TR|EXP|MOD|SRLG|PRS|CONC|BSW|FUNC|COM|SPEC)_[A-Za-z0-9_]+\]',
+    # Markdown headers (kept for any Markdown-exported AUTOSAR docs)
     r'^#{1,6}\s+(.+)$',
-    r'^([A-Z][^.!?]*):$',
+    # Single-level numbered sections: "1. Introduction"
     r'^\d+\.\s+([A-Z].+)$',
-    r'^([A-Z\s]{3,})$',
+    # Title-case field label with colon: "Description:", "Rationale:", "Use Case:"
+    # Matches 3–41 total chars (1 uppercase initial + 2–40 more alphanumeric/space).
+    r'^([A-Z][A-Za-z ]{2,40}):$',
+    # All-caps headings (5–50 chars to avoid matching short enumerated constants).
+    # Minimum of 5 total chars: [A-Z] + 4 more uppercase/space chars.
+    r'^([A-Z][A-Z\s]{4,49})$',
 ]
 
-BM25_OUTPUT = "bm25_index_v3.json"
+BM25_OUTPUT = "bm25_index_autosar.json"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Logging

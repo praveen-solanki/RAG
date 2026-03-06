@@ -23,6 +23,7 @@ either property.
 import json
 import logging
 import math
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -52,32 +53,41 @@ except LookupError:
 # CONFIG  (mirrors Qdrant_Database_Generation_V3.py defaults)
 # ═══════════════════════════════════════════════════════════════════════════
 
-COLLECTION_BASE  = "rag_v3"
+# ═══════════════════════════════════════════════════════════════════════════
+# CONFIG  (mirrors Qdrant_Database_Generation_V3.py defaults — AUTOSAR tuned)
+# ═══════════════════════════════════════════════════════════════════════════
+
+COLLECTION_BASE  = os.environ.get("RAG_COLLECTION", "autosar_v3")
 CHILDREN_COL     = f"{COLLECTION_BASE}_children"
 PARENTS_COL      = f"{COLLECTION_BASE}_parents"
 QDRANT_URL       = "http://localhost:7333"
 OLLAMA_URL       = "http://localhost:11434"
 OLLAMA_MODEL     = "bge-m3:latest"
 FALLBACK_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
-BM25_INDEX_PATH  = "bm25_index_v3.json"
+BM25_INDEX_PATH  = "bm25_index_autosar.json"
 
-# Retrieval knobs
-CHILD_DENSE_TOP_K  = 50
-CHILD_SPARSE_TOP_K = 50
-CHILD_HYBRID_TOP_K = 30   # after RRF fusion
+# ── Retrieval knobs — AUTOSAR tuning ─────────────────────────────────────────
+# Wider initial recall because AUTOSAR queries often contain exact abbreviations
+# or requirement IDs that need both dense and sparse signals to surface.
+CHILD_DENSE_TOP_K  = 60
+CHILD_SPARSE_TOP_K = 60
+CHILD_HYBRID_TOP_K = 35   # after RRF fusion
 FINAL_TOP_K        = 10   # after parent-expansion + re-ranking
 
 # Fusion weights for RRF
+# AUTOSAR queries rely heavily on exact terminology (SWC, BSW, ECU, requirement IDs)
+# so BM25 sparse signals are equally important as dense semantic signals.
 RRF_K          = 60        # RRF constant (k in 1/(k+rank))
-DENSE_WEIGHT   = 0.6
-SPARSE_WEIGHT  = 0.4
+DENSE_WEIGHT   = 0.5
+SPARSE_WEIGHT  = 0.5
 
 # ── Cross-encoder re-ranking ─────────────────────────────────────────────────
 USE_OLLAMA_RERANKER  = True
 # Reranker uses the embedding model for cosine-similarity reranking.
 # Change this to switch reranking model independently of embedding model.
 OLLAMA_RERANKER_MODEL = OLLAMA_MODEL          # default: same as embedding model
-MAX_RERANK_CHARS     = 2000   # truncate parent text for reranking to avoid timeouts
+# AUTOSAR parent chunks are up to 3 500 chars; allow the reranker to see more text.
+MAX_RERANK_CHARS     = 3000
 
 # ── Content-type filtering ─────────────────────────────────────────────────
 # PageType constants (mirrored from ingestion for use in retrieval filters)
