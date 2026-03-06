@@ -17,6 +17,9 @@ python-dotenv
 pydantic
 requests
 bitsandbytes
+# V3 ingestion — OCR fallback (optional; install only if you have tesseract-ocr on the OS)
+# pdf2image>=1.17.0
+# pytesseract>=0.3.13
 
 
 accelerate==1.12.0
