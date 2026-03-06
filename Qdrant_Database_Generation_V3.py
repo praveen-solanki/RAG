@@ -32,13 +32,28 @@ New features over V2:
    - Global deduplication across ALL files processed in a single run (not per-file)
    - O(1) lookup vs O(window × chunk_text_length) for Jaccard
 
-6. Additional improvements
+6. Page Classification + Content-Type-Aware Ingestion
+   - Every PDF page is classified by type: text / table / image / diagram / mixed / cover / toc
+   - Two-tier classification: fast heuristics first, then Ollama vision LLM for ambiguous pages
+   - Different extraction strategy per page type:
+     · text    -> standard pypdfium2 / pdfplumber
+     · table   -> pdfplumber structured extraction (headers + rows preserved)
+     · image   -> pytesseract OCR or Ollama vision description
+     · diagram -> Ollama vision LLM structured description prompt
+     · mixed   -> combine text + table + vision approaches
+     · cover / toc -> lightweight extraction (skip or minimal)
+   - ALL model names are top-level CONFIG variables: change once, affects everything
+   - page_type stored as payload field in Qdrant for content-type-aware retrieval
+
+7. Additional improvements
    - Per-file statistics (accepted/skipped/dedup'ed chunks logged)
    - Better BM25 tokenisation (stop-word-aware)
    - Graceful degradation: every new feature can be disabled via CONFIG flags
 """
 
 import argparse
+import base64
+import io
 import json
 import math
 import time
@@ -83,6 +98,14 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+# Optional Pillow (needed for rendering PDF pages to images for Ollama vision)
+try:
+    from PIL import Image as PILImage
+    PILLOW_AVAILABLE = True
+except ImportError:
+    PILImage = None
+    PILLOW_AVAILABLE = False
+
 # Optional sklearn for semantic chunking
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -121,16 +144,44 @@ DATA_DIR       = os.environ.get(
 COLLECTION     = "rag_v3"          # base name; _children / _parents suffixes added automatically
 QDRANT_URL     = "http://localhost:7333"
 
-# Embedding
+# ── Embedding (Ollama) ──────────────────────────────────────────────────────
 USE_OLLAMA_BGE_M3 = True
 OLLAMA_URL        = "http://localhost:11434"
-OLLAMA_MODEL      = "bge-m3:latest"
-FALLBACK_MODEL    = "sentence-transformers/all-MiniLM-L6-v2"
+# Embedding model — change this variable to switch embedding model in Ollama
+OLLAMA_EMBED_MODEL = "bge-m3:latest"
+OLLAMA_MODEL       = OLLAMA_EMBED_MODEL   # alias kept for backward compatibility
+FALLBACK_MODEL     = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Generation model for LLM-based contextual enrichment
-# Set to None or "" to use template-based enrichment only
-CONTEXT_LLM_MODEL = ""             # e.g. "llama3:8b" if you have it in Ollama
-CONTEXT_MODE      = "template"     # "template" | "llm"
+# ── Page Classification (Ollama Vision) ─────────────────────────────────────
+ENABLE_PAGE_CLASSIFICATION = True
+# Fast lightweight model for page type classification
+# Recommended: "moondream:latest" (< 2B params, very fast)
+# Alternatives:  "llava:7b", "llava:13b", "llama3.2-vision:11b"
+OLLAMA_VISION_MODEL        = "moondream:latest"
+# Richer vision model for describing images and flow diagrams
+# Recommended: "llava:7b"   Alternatives: "llava:13b", "llama3.2-vision:11b"
+OLLAMA_VISION_DESC_MODEL   = "llava:7b"
+
+# ── Contextual Enrichment (Ollama Generation) ────────────────────────────────
+# Text generation model for LLM-mode context enrichment
+# Recommended: "llama3.2:3b" (fast), "llama3:8b" (higher quality)
+OLLAMA_GENERATION_MODEL    = "llama3.2:3b"
+CONTEXT_LLM_MODEL          = ""        # overrides OLLAMA_GENERATION_MODEL when set
+CONTEXT_MODE               = "template"  # "template" | "llm"
+
+# ── OCR ─────────────────────────────────────────────────────────────────────
+# "pytesseract" — fast local OCR; requires tesseract binary
+# "ollama_vision" — uses vision LLM to transcribe (no binary needed)
+OCR_ENGINE = "pytesseract"
+
+# ── Vision classifier settings ───────────────────────────────────────────────
+# Heuristic confidence below this triggers a vision LLM call for final decision
+VISION_HEURISTIC_CONFIDENCE_THRESHOLD = 0.70
+# Scale for rendering PDF pages (higher = better quality, slower)
+PAGE_RENDER_SCALE         = 2.0
+PAGE_RENDER_JPEG_QUALITY  = 85
+MAX_VISION_RESPONSE_CHARS = 800
+VISION_API_TIMEOUT        = 60
 
 # Chunking parameters
 CHILD_CHUNK_SIZE    = 512          # child chunk target size (chars)
@@ -155,8 +206,8 @@ MINHASH_BANDS         = 32         # LSH bands (threshold ≈ (1/bands)^(1/rows)
 MINHASH_ROWS          = 4          # rows per band  → threshold ≈ 0.83
 MINHASH_SHINGLE_SIZE  = 3          # character n-grams for shingling
 
-# PDF extraction
-ENABLE_OCR_FALLBACK   = True       # use pytesseract if tier-1/2 yield sparse text
+# ── PDF extraction ───────────────────────────────────────────────────────────
+ENABLE_OCR_FALLBACK   = True       # use OCR_ENGINE if tier-1/2 yield sparse text
 OCR_TRIGGER_CHARS     = 80         # page chars below this triggers tier-2 / tier-3
 
 # TOC detection (inherited from V2)
@@ -191,6 +242,28 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Page Types
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PageType:
+    """
+    String constants for every page content type.
+
+    Use these constants throughout the pipeline so that filtering by
+    content type in Qdrant always uses the same canonical strings.
+    """
+    TEXT     = "text"       # dense prose / paragraphs
+    TABLE    = "table"      # primarily tabular data
+    IMAGE    = "image"      # photograph or raster graphic
+    DIAGRAM  = "diagram"    # flow chart, block diagram, UML, schematic
+    EQUATION = "equation"   # mathematical equations / formulae
+    MIXED    = "mixed"      # combination of multiple types
+    COVER    = "cover"      # title / cover page
+    TOC      = "toc"        # table of contents
+    UNKNOWN  = "unknown"    # classifier was unable to determine type
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Data classes
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -216,9 +289,10 @@ class ParentChunk:
     section_hierarchy: List[str]
     page_number: Optional[int]
     chunk_type: str
-    word_count: int
-    start_char: int
-    end_char: int
+    page_type: str = PageType.TEXT          # classified page type (PageType.*)
+    word_count: int = 0
+    start_char: int = 0
+    end_char: int = 0
     parent_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
@@ -231,13 +305,633 @@ class ChildChunk:
     section_hierarchy: List[str]
     page_number: Optional[int]
     chunk_type: str
-    word_count: int
-    sentence_count: int
-    start_char: int
-    end_char: int
-    parent_id: str              # FK → ParentChunk.parent_id
-    child_index: int            # position within parent
+    page_type: str = PageType.TEXT          # classified page type (PageType.*)
+    word_count: int = 0
+    sentence_count: int = 0
+    start_char: int = 0
+    end_char: int = 0
+    parent_id: str = ""         # FK -> ParentChunk.parent_id
+    child_index: int = 0        # position within parent
 
+
+
+
+
+
+@dataclass
+class PageClassificationResult:
+    """Holds the classification outcome for a single PDF page."""
+    page_type: str                  # one of PageType.*
+    confidence: float               # 0-1 heuristic or 0/1 from LLM
+    description: str                # short natural-language description of the page
+    has_text: bool
+    has_tables: bool
+    has_images: bool
+    text_density: float             # chars / estimated_page_area
+    used_vision_model: bool = False # True when the Ollama vision LLM was consulted
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Ollama Vision Classifier
+# ═══════════════════════════════════════════════════════════════════════════
+
+class OllamaVisionClassifier:
+    """
+    Two-tier AI-powered page classifier.
+
+    Tier 1 (heuristic) — fast, no model call needed:
+        Inspects text density, table count, and embedded-image presence
+        using metadata already extracted by pypdfium2 / pdfplumber.
+        Returns a (PageType, confidence) pair.
+
+    Tier 2 (vision LLM) — called when confidence < VISION_HEURISTIC_CONFIDENCE_THRESHOLD
+        or when the page appears to contain images/diagrams:
+        Renders the page to a JPEG, encodes it as base64, and sends it to
+        the Ollama vision model (default: moondream:latest).
+        The model is asked to classify the page and give a brief description.
+
+    All model names are configurable via CONFIG variables.
+    """
+
+    # Prompt used to classify page type with a vision model
+    _CLASSIFY_PROMPT = (
+        "You are a document analysis assistant. Look at this page from a technical document "
+        "and classify it. Choose EXACTLY ONE type from this list:\n"
+        "  text, table, image, diagram, equation, mixed, cover, toc\n\n"
+        "Definitions:\n"
+        "  text     - dense paragraphs, mostly prose\n"
+        "  table    - rows and columns of data\n"
+        "  image    - photograph, raster graphic, screenshot\n"
+        "  diagram  - flow chart, block diagram, UML, schematic, architecture diagram\n"
+        "  equation - mathematical or chemical equations dominate the page\n"
+        "  mixed    - two or more content types side by side\n"
+        "  cover    - title page / cover page\n"
+        "  toc      - table of contents\n\n"
+        "Reply with a JSON object like: "
+        '{"type": "<type>", "description": "<one sentence>"}\n'
+        "Reply with JSON only, no markdown, no extra text."
+    )
+
+    # Prompt used to get a rich description of an image/diagram page
+    _DESCRIBE_IMAGE_PROMPT = (
+        "Describe this image from a technical document in detail. "
+        "What does it show? Extract any text visible in the image. "
+        "If it is a diagram or flow chart, describe the flow, components, and relationships. "
+        "Be precise and comprehensive. Reply in plain text."
+    )
+
+    _DESCRIBE_DIAGRAM_PROMPT = (
+        "This is a technical diagram from an engineering or software document. "
+        "Describe it thoroughly: what type of diagram is it, what are the main components, "
+        "what process or architecture does it represent, and what are the key relationships "
+        "or data flows shown? Extract all visible text labels. "
+        "Format your response as structured text that can be indexed for retrieval."
+    )
+
+    def __init__(
+        self,
+        ollama_url: str = OLLAMA_URL,
+        classify_model: str = OLLAMA_VISION_MODEL,
+        describe_model: str = OLLAMA_VISION_DESC_MODEL,
+    ):
+        self.ollama_url     = ollama_url
+        self.classify_model = classify_model
+        self.describe_model = describe_model
+        self._available     = self._check_ollama()
+
+    def _check_ollama(self) -> bool:
+        try:
+            r = requests.get(f"{self.ollama_url}/api/tags", timeout=3)
+            if r.status_code == 200:
+                logger.info(f"✓ OllamaVisionClassifier connected to {self.ollama_url}")
+                return True
+        except Exception:
+            pass
+        logger.warning(
+            "OllamaVisionClassifier: Ollama unavailable — will use heuristics only."
+        )
+        return False
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _render_page_to_jpeg(pdf_path: str, page_index: int,
+                              scale: float = PAGE_RENDER_SCALE,
+                              quality: int = PAGE_RENDER_JPEG_QUALITY) -> Optional[str]:
+        """
+        Render a single PDF page to a JPEG and return it as a base64 string.
+        Returns None if pypdfium2 or Pillow is unavailable.
+        """
+        if not PILLOW_AVAILABLE:
+            return None
+        try:
+            doc = pdfium.PdfDocument(pdf_path)
+            try:
+                page = doc[page_index]
+                try:
+                    bitmap = page.render(scale=scale)
+                    pil_img = bitmap.to_pil()
+                    buf = io.BytesIO()
+                    pil_img.save(buf, format="JPEG", quality=quality)
+                    return base64.b64encode(buf.getvalue()).decode("utf-8")
+                finally:
+                    page.close()
+            finally:
+                doc.close()
+        except Exception as e:
+            logger.debug(f"Page render error for page {page_index+1}: {e}")
+            return None
+
+    def _call_vision(self, prompt: str, b64_image: str,
+                     model: Optional[str] = None,
+                     timeout: int = VISION_API_TIMEOUT) -> str:
+        """
+        Call an Ollama vision model with an image and a text prompt.
+        Returns the response text, or "" on failure.
+        """
+        if not self._available or not b64_image:
+            return ""
+        m = model or self.classify_model
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": m,
+                    "prompt": prompt,
+                    "images": [b64_image],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 256},
+                },
+                timeout=timeout,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()[:MAX_VISION_RESPONSE_CHARS]
+            logger.debug(f"Vision API HTTP {resp.status_code}: {resp.text[:80]}")
+        except Exception as e:
+            logger.debug(f"Vision API error: {e}")
+        return ""
+
+    # ── Tier 1: fast heuristic ───────────────────────────────────────────────
+
+    @staticmethod
+    def _heuristic_classify(
+        tier1_text: str,
+        plumber_page,          # pdfplumber page object (may be None)
+        page_index: int,
+    ) -> Tuple[str, float]:
+        """
+        Returns (PageType, confidence) using lightweight metadata signals only.
+        Confidence is a value in [0, 1]; values below
+        VISION_HEURISTIC_CONFIDENCE_THRESHOLD will trigger a vision LLM call.
+        """
+        text = tier1_text.strip()
+        text_len = len(text)
+
+        has_tables = False
+        table_count = 0
+        has_images = False
+        img_count = 0
+
+        if plumber_page is not None:
+            try:
+                tables = plumber_page.extract_tables()
+                table_count = len(tables) if tables else 0
+                has_tables = table_count > 0
+            except Exception:
+                pass
+            try:
+                imgs = plumber_page.images
+                img_count = len(imgs) if imgs else 0
+                has_images = img_count > 0
+            except Exception:
+                pass
+
+        # Cover page: very short, often contains a single title and date
+        if text_len < 150 and not has_tables and not has_images:
+            return PageType.COVER, 0.65
+
+        # TOC: already handled by _is_toc_page; mark as low-confidence unknown
+        # so the main pipeline may skip it.
+        if text_len < TOC_MAX_CONTENT_CHARS:
+            toc_re = re.compile(r"(\.\s*){2,}.*\d+\s*$")
+            non_empty = [l for l in text.splitlines() if l.strip()]
+            if non_empty:
+                toc_frac = sum(1 for l in non_empty if toc_re.search(l)) / len(non_empty)
+                if toc_frac > 0.35:
+                    return PageType.TOC, 0.80
+
+        # Pure image page (almost no text, has embedded images)
+        if text_len < OCR_TRIGGER_CHARS and has_images and not has_tables:
+            return PageType.IMAGE, 0.72
+
+        # Diagram page heuristic: no text layer but has images with certain aspect ratios
+        if text_len < OCR_TRIGGER_CHARS and has_images:
+            return PageType.DIAGRAM, 0.55   # low confidence → will trigger vision
+
+        # Table-dominant page
+        if has_tables and table_count >= 1:
+            if text_len < 300:
+                return PageType.TABLE, 0.85
+            return PageType.MIXED, 0.65
+
+        # Dense text page
+        if text_len > 500 and not has_images:
+            return PageType.TEXT, 0.90
+
+        if text_len > 200:
+            return PageType.TEXT, 0.75
+
+        # Low-text, no structural signals
+        if has_images:
+            return PageType.IMAGE, 0.55    # likely image, but trigger vision
+        return PageType.UNKNOWN, 0.40
+
+    # ── Tier 2: vision LLM ──────────────────────────────────────────────────
+
+    def _vision_classify(self, pdf_path: str, page_index: int) -> Tuple[str, str]:
+        """
+        Classify page type with an Ollama vision model.
+        Returns (PageType, description) or (PageType.UNKNOWN, "") on failure.
+        """
+        b64 = self._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return PageType.UNKNOWN, ""
+
+        raw = self._call_vision(self._CLASSIFY_PROMPT, b64, self.classify_model)
+        if not raw:
+            return PageType.UNKNOWN, ""
+
+        # Parse JSON response
+        try:
+            # Strip markdown code fences if present
+            cleaned = re.sub(r"```[a-z]*\n?", "", raw).strip().strip("`")
+            data = json.loads(cleaned)
+            ptype = data.get("type", "unknown").lower().strip()
+            desc  = data.get("description", "")
+            valid = {PageType.TEXT, PageType.TABLE, PageType.IMAGE,
+                     PageType.DIAGRAM, PageType.EQUATION, PageType.MIXED,
+                     PageType.COVER, PageType.TOC}
+            if ptype not in valid:
+                ptype = PageType.UNKNOWN
+            return ptype, desc
+        except Exception:
+            # Fallback: look for type keyword in freeform response
+            low = raw.lower()
+            for pt in [PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM,
+                       PageType.EQUATION, PageType.COVER, PageType.TOC,
+                       PageType.MIXED, PageType.TEXT]:
+                if pt in low:
+                    return pt, raw[:200]
+            return PageType.UNKNOWN, raw[:200]
+
+    # ── Public API ──────────────────────────────────────────────────────────
+
+    def classify(
+        self,
+        pdf_path: str,
+        page_index: int,
+        tier1_text: str,
+        plumber_page,
+    ) -> PageClassificationResult:
+        """
+        Classify a single PDF page.  Returns a PageClassificationResult.
+
+        Steps:
+        1. Run fast heuristic (no model call).
+        2. If confidence < threshold OR page has images, call vision LLM.
+        """
+        text = tier1_text.strip()
+        has_tables = False
+        has_images = False
+
+        if plumber_page is not None:
+            try:
+                has_tables = bool(plumber_page.extract_tables())
+            except Exception:
+                pass
+            try:
+                has_images = bool(plumber_page.images)
+            except Exception:
+                pass
+
+        text_density = len(text) / max(1, 600 * 800)   # rough page area chars/pixel
+
+        h_type, h_conf = self._heuristic_classify(tier1_text, plumber_page, page_index)
+        description = ""
+        used_vision = False
+
+        needs_vision = (
+            ENABLE_PAGE_CLASSIFICATION
+            and self._available
+            and PILLOW_AVAILABLE
+            and (
+                h_conf < VISION_HEURISTIC_CONFIDENCE_THRESHOLD
+                or has_images
+                or h_type in (PageType.DIAGRAM, PageType.IMAGE, PageType.UNKNOWN)
+            )
+        )
+
+        if needs_vision:
+            v_type, description = self._vision_classify(pdf_path, page_index)
+            used_vision = True
+            # Vision model wins when it disagrees with low-confidence heuristic
+            if v_type != PageType.UNKNOWN:
+                final_type = v_type
+            else:
+                final_type = h_type if h_type != PageType.UNKNOWN else PageType.TEXT
+        else:
+            final_type = h_type if h_type != PageType.UNKNOWN else PageType.TEXT
+
+        return PageClassificationResult(
+            page_type=final_type,
+            confidence=1.0 if used_vision else h_conf,
+            description=description,
+            has_text=len(text) > 50,
+            has_tables=has_tables,
+            has_images=has_images,
+            text_density=text_density,
+            used_vision_model=used_vision,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Content-Type Extractor
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ContentTypeExtractor:
+    """
+    Routes each classified PDF page to the appropriate extraction method.
+
+    PageType  →  Strategy
+    ─────────────────────────────────────────────────────────────────────────
+    TEXT      →  pypdfium2 text (already extracted) — returned as-is
+    TABLE     →  pdfplumber structured table (headers + rows)
+    IMAGE     →  pytesseract OCR  OR  Ollama vision transcription
+    DIAGRAM   →  Ollama llava vision description (structured prompt)
+    EQUATION  →  pypdfium2 text + vision description fallback
+    MIXED     →  combine text + table + vision approaches
+    COVER     →  pypdfium2 text (usually short)
+    TOC       →  skip (return empty string)
+
+    All model names are read from CONFIG variables.
+    """
+
+    def __init__(
+        self,
+        ollama_url: str = OLLAMA_URL,
+        classify_model: str = OLLAMA_VISION_MODEL,
+        describe_model: str = OLLAMA_VISION_DESC_MODEL,
+        ocr_engine: str = OCR_ENGINE,
+    ):
+        self.ollama_url     = ollama_url
+        self.classify_model = classify_model
+        self.describe_model = describe_model
+        self.ocr_engine     = ocr_engine
+        self._available     = self._check_ollama()
+
+    def _check_ollama(self) -> bool:
+        try:
+            r = requests.get(f"{self.ollama_url}/api/tags", timeout=3)
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    # ── OCR strategies ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _ocr_pytesseract(pdf_path: str, page_index: int) -> str:
+        """Use pytesseract to OCR a single page. Returns text or ""."""
+        if not OCR_AVAILABLE:
+            return ""
+        try:
+            images = pdf_to_images(
+                pdf_path, first_page=page_index + 1, last_page=page_index + 1, dpi=200
+            )
+            if images:
+                return pytesseract.image_to_string(images[0])
+        except Exception as e:
+            logger.debug(f"pytesseract OCR page {page_index+1}: {e}")
+        return ""
+
+    def _ocr_ollama_vision(self, pdf_path: str, page_index: int) -> str:
+        """Use Ollama vision LLM to transcribe a page. Returns text or ""."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "Transcribe all text visible on this page exactly as it appears. "
+            "Preserve formatting, numbers, and special characters. "
+            "If there are tables, reproduce them in pipe-delimited format. "
+            "Reply with the transcribed text only."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.classify_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 1024},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"OCR via Ollama vision page {page_index+1}: {e}")
+        return ""
+
+    def _ocr(self, pdf_path: str, page_index: int) -> str:
+        """Dispatch OCR to the configured engine."""
+        if self.ocr_engine == "ollama_vision":
+            text = self._ocr_ollama_vision(pdf_path, page_index)
+            if not text:
+                text = self._ocr_pytesseract(pdf_path, page_index)
+        else:
+            text = self._ocr_pytesseract(pdf_path, page_index)
+            if not text:
+                text = self._ocr_ollama_vision(pdf_path, page_index)
+        return text
+
+    # ── Vision description ───────────────────────────────────────────────────
+
+    def _describe_diagram(self, pdf_path: str, page_index: int) -> str:
+        """Ask Ollama llava to give a structured description of a diagram."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "This is a technical diagram from an engineering or software document. "
+            "Describe it thoroughly: what type of diagram is it, what are the main components, "
+            "what process or architecture does it represent, and what are the key relationships "
+            "or data flows shown? Extract all visible text labels. "
+            "Format your response as structured text suitable for retrieval."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.describe_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 800},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"Diagram description page {page_index+1}: {e}")
+        return ""
+
+    def _describe_image(self, pdf_path: str, page_index: int) -> str:
+        """Ask Ollama llava to describe an image page."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "Describe this image from a technical document in detail. "
+            "What does it show? Extract any text visible in the image. "
+            "If it contains a chart, table, or graph, describe the data and labels precisely. "
+            "Be comprehensive so the description can be used for information retrieval."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.describe_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 600},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"Image description page {page_index+1}: {e}")
+        return ""
+
+    # ── Table extraction ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _extract_table_structured(plumber_page) -> str:
+        """
+        Extract tables from a pdfplumber page as structured pipe-delimited text,
+        including header detection (first row of each table treated as header).
+        """
+        if plumber_page is None:
+            return ""
+        parts: List[str] = []
+        try:
+            tables = plumber_page.extract_tables()
+            for tbl_idx, table in enumerate(tables):
+                if not table:
+                    continue
+                rows = []
+                for ri, row in enumerate(table):
+                    cells = [str(c).strip() if c else "" for c in row]
+                    row_str = " | ".join(cells)
+                    if ri == 0:
+                        # Mark first row as header
+                        rows.append(row_str)
+                        rows.append("-" * len(row_str))
+                    else:
+                        rows.append(row_str)
+                parts.append(
+                    f"\n[TABLE {tbl_idx + 1}]\n" + "\n".join(rows) + "\n"
+                )
+        except Exception as e:
+            logger.debug(f"Structured table extraction error: {e}")
+        return "".join(parts)
+
+    # ── Main dispatch ────────────────────────────────────────────────────────
+
+    def extract(
+        self,
+        page_type: str,
+        pdf_path: str,
+        page_index: int,
+        tier1_text: str,
+        plumber_page,
+    ) -> str:
+        """
+        Extract content from a page based on its classified type.
+        Returns extracted text suitable for embedding.
+        """
+        t = page_type
+
+        if t == PageType.TOC:
+            return ""   # TOC pages are not indexed
+
+        if t == PageType.COVER:
+            return tier1_text.strip()
+
+        if t == PageType.TEXT:
+            return tier1_text.strip()
+
+        if t == PageType.EQUATION:
+            # Try text extraction first; fall back to vision description
+            if tier1_text.strip():
+                return tier1_text.strip()
+            return self._describe_image(pdf_path, page_index)
+
+        if t == PageType.TABLE:
+            table_text = self._extract_table_structured(plumber_page)
+            if table_text:
+                return table_text
+            # Fall back to text if table extraction fails
+            return tier1_text.strip()
+
+        if t == PageType.IMAGE:
+            # OCR first; if OCR yields nothing, ask vision LLM to describe
+            ocr_text = self._ocr(pdf_path, page_index)
+            if ocr_text.strip():
+                return ocr_text.strip()
+            desc = self._describe_image(pdf_path, page_index)
+            return desc or tier1_text.strip()
+
+        if t == PageType.DIAGRAM:
+            desc = self._describe_diagram(pdf_path, page_index)
+            if desc:
+                # Prepend any extracted text layer (labels, captions)
+                if tier1_text.strip():
+                    return f"{tier1_text.strip()}\n\n[Diagram Description]\n{desc}"
+                return f"[Diagram Description]\n{desc}"
+            # Fall back to OCR if vision is unavailable
+            ocr_text = self._ocr(pdf_path, page_index)
+            return ocr_text or tier1_text.strip()
+
+        if t == PageType.MIXED:
+            parts = []
+            if tier1_text.strip():
+                parts.append(tier1_text.strip())
+            table_text = self._extract_table_structured(plumber_page)
+            if table_text:
+                parts.append(table_text)
+            # If there are images, try to describe them too
+            has_images = False
+            try:
+                has_images = bool(plumber_page and plumber_page.images)
+            except Exception:
+                pass
+            if has_images:
+                desc = self._describe_image(pdf_path, page_index)
+                if desc:
+                    parts.append(f"[Visual Content]\n{desc}")
+            return "\n\n".join(filter(None, parts))
+
+        # Fallback
+        return tier1_text.strip()
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helper utilities
@@ -532,11 +1226,32 @@ class EnhancedPDFLoader:
         return "".join(parts)
 
     @classmethod
-    def load(cls, path: str) -> Tuple[str, Dict]:
-        """Load PDF using 3-tier extraction; returns (full_text, metadata)."""
-        metadata: Dict = {"num_pages": 0, "has_tables": False, "tables_count": 0}
+    def load(
+        cls,
+        path: str,
+        classifier: "OllamaVisionClassifier" = None,
+        content_extractor: "ContentTypeExtractor" = None,
+    ) -> Tuple[str, Dict]:
+        """
+        Load PDF using 3-tier extraction + optional AI page classification.
+
+        When `classifier` is provided, every page is classified (text / table /
+        image / diagram / mixed / cover / toc) and routed to the appropriate
+        extraction strategy via `content_extractor`.
+
+        page_type annotations are embedded in the text as
+          [Page N | type=<type>]
+        and also accumulated into metadata["page_types"] for downstream use.
+        """
+        metadata: Dict = {
+            "num_pages": 0,
+            "has_tables": False,
+            "tables_count": 0,
+            "page_types": {},     # {page_number: PageType}
+        }
         page_texts: List[str] = []
         skipped_pages: List[int] = []
+        type_counts: Dict[str, int] = {}
 
         # ── Tier 1: pypdfium2 ──────────────────────────────────────────
         pdf = pdfium.PdfDocument(path)
@@ -561,13 +1276,13 @@ class EnhancedPDFLoader:
 
         # ── Tier 2 + 3 with pdfplumber (also handles tables) ──────────
         plumber_pages: Dict[int, object] = {}
+        plumber_doc = None
         try:
             plumber_doc = pdfplumber.open(path)
             for pn, pp in enumerate(plumber_doc.pages):
                 plumber_pages[pn] = pp
         except Exception as e:
             logger.warning(f"pdfplumber open error (non-fatal): {e}")
-            plumber_doc = None
 
         for pn in range(metadata["num_pages"]):
             tier1_text = tier1_results.get(pn, "")
@@ -583,38 +1298,73 @@ class EnhancedPDFLoader:
                 except Exception as e:
                     logger.debug(f"  pdfplumber tier-2 page {pn+1}: {e}")
 
-            # Tier 3: OCR for truly empty pages
-            if (len(page_text.strip()) < OCR_TRIGGER_CHARS
-                    and ENABLE_OCR_FALLBACK and OCR_AVAILABLE):
+            # ── AI Page Classification (new in V3) ─────────────────────
+            page_type = PageType.TEXT
+            class_result = None
+            if classifier is not None:
                 try:
-                    images = pdf_to_images(
-                        path, first_page=pn + 1, last_page=pn + 1, dpi=200
+                    class_result = classifier.classify(
+                        path, pn, page_text, plumber_pages.get(pn)
                     )
-                    if images:
-                        ocr_text = pytesseract.image_to_string(images[0])
-                        if len(ocr_text.strip()) > len(page_text.strip()):
-                            page_text = ocr_text
-                            logger.debug(f"  Page {pn+1}: used OCR (tier-3)")
+                    page_type = class_result.page_type
+                    type_counts[page_type] = type_counts.get(page_type, 0) + 1
+                    metadata["page_types"][pn + 1] = page_type
+                    logger.debug(
+                        f"  Page {pn+1}: type={page_type} "
+                        f"conf={class_result.confidence:.2f} "
+                        f"vision={class_result.used_vision_model}"
+                    )
                 except Exception as e:
-                    logger.debug(f"  OCR tier-3 page {pn+1}: {e}")
+                    logger.debug(f"  Page {pn+1} classification error: {e}")
+
+            # Skip TOC pages
+            if page_type == PageType.TOC or cls._is_toc_page(page_text):
+                skipped_pages.append(pn + 1)
+                continue
+
+            # ── Content-type-aware extraction ──────────────────────────
+            if content_extractor is not None and class_result is not None:
+                try:
+                    extracted = content_extractor.extract(
+                        page_type, path, pn, page_text, plumber_pages.get(pn)
+                    )
+                    if extracted:
+                        page_text = extracted
+                except Exception as e:
+                    logger.debug(f"  Page {pn+1} content extraction error: {e}")
+            else:
+                # Legacy Tier 3: OCR fallback for empty pages
+                if (len(page_text.strip()) < OCR_TRIGGER_CHARS
+                        and ENABLE_OCR_FALLBACK and OCR_AVAILABLE):
+                    try:
+                        images = pdf_to_images(
+                            path, first_page=pn + 1, last_page=pn + 1, dpi=200
+                        )
+                        if images:
+                            ocr_text = pytesseract.image_to_string(images[0])
+                            if len(ocr_text.strip()) > len(page_text.strip()):
+                                page_text = ocr_text
+                                logger.debug(f"  Page {pn+1}: used OCR (tier-3)")
+                    except Exception as e:
+                        logger.debug(f"  OCR tier-3 page {pn+1}: {e}")
 
             if not page_text.strip():
                 continue
 
-            if cls._is_toc_page(page_text):
-                skipped_pages.append(pn + 1)
-                continue
+            # Embed page type annotation in the text so downstream chunkers
+            # can carry it forward as metadata.
+            page_tag = f"[Page {pn + 1} | type={page_type}]"
+            page_entry = f"\n{page_tag}\n{page_text}\n"
 
-            # Append text
-            page_entry = f"\n[Page {pn + 1}]\n{page_text}\n"
-
-            # Append table text (pdfplumber)
-            if pn in plumber_pages:
-                table_text = cls._extract_tables_as_text(plumber_pages[pn])
-                if table_text:
-                    metadata["has_tables"] = True
-                    metadata["tables_count"] += table_text.count("[Table ")
-                    page_entry += table_text
+            # Append structured table text (pdfplumber) for non-table pages
+            # (table pages already have structured extraction via content_extractor)
+            if page_type not in (PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM):
+                if pn in plumber_pages:
+                    table_text = cls._extract_tables_as_text(plumber_pages[pn])
+                    if table_text:
+                        metadata["has_tables"] = True
+                        metadata["tables_count"] += table_text.count("[Table ")
+                        page_entry += table_text
 
             page_texts.append(page_entry)
 
@@ -628,6 +1378,12 @@ class EnhancedPDFLoader:
             logger.info(
                 f"  ⊘ Skipped {len(skipped_pages)} TOC/boilerplate pages: "
                 f"{skipped_pages[:10]}{'...' if len(skipped_pages) > 10 else ''}"
+            )
+
+        if type_counts:
+            logger.info(
+                f"  📄 Page type breakdown: "
+                + ", ".join(f"{k}={v}" for k, v in sorted(type_counts.items()))
             )
 
         return "".join(page_texts), metadata
@@ -649,11 +1405,20 @@ class AdvancedDocumentLoader:
         }
 
     @classmethod
-    def load(cls, path: str) -> Tuple[Optional[str], Dict]:
+    def load(
+        cls,
+        path: str,
+        classifier: "OllamaVisionClassifier" = None,
+        content_extractor: "ContentTypeExtractor" = None,
+    ) -> Tuple[Optional[str], Dict]:
         try:
             base_meta = cls.extract_metadata(path)
             if path.lower().endswith(".pdf"):
-                text, doc_meta = EnhancedPDFLoader.load(path)
+                text, doc_meta = EnhancedPDFLoader.load(
+                    path,
+                    classifier=classifier,
+                    content_extractor=content_extractor,
+                )
             elif path.lower().endswith(".docx"):
                 text, doc_meta = cls._load_docx(path)
             elif path.lower().endswith(".txt"):
@@ -855,6 +1620,11 @@ class SemanticChunker:
                 section_hierarchy=list(section_hierarchy),
                 page_number=page_number,
                 chunk_type=chunk_type,
+                page_type=chunk_type if chunk_type in {
+                    PageType.TEXT, PageType.TABLE, PageType.IMAGE,
+                    PageType.DIAGRAM, PageType.EQUATION, PageType.MIXED,
+                    PageType.COVER, PageType.TOC, PageType.UNKNOWN,
+                } else PageType.TEXT,
                 word_count=len(word_tokenize(text)),
                 sentence_count=len(sent_tokenize(text)),
                 start_char=sc,
@@ -986,6 +1756,7 @@ class ParentChildBuilder:
                 section_hierarchy=list(raw_parent.section_hierarchy),
                 page_number=raw_parent.page_number,
                 chunk_type=raw_parent.chunk_type,
+                page_type=getattr(raw_parent, "page_type", PageType.TEXT),
                 word_count=raw_parent.word_count,
                 start_char=raw_parent.start_char,
                 end_char=raw_parent.end_char,
@@ -1237,10 +2008,19 @@ def main():
     parser.add_argument("--qdrant-url",     default=QDRANT_URL)
     parser.add_argument("--ollama-url",     default=OLLAMA_URL)
     parser.add_argument("--ollama-model",   default=OLLAMA_MODEL)
-    parser.add_argument("--context-mode",   default=CONTEXT_MODE,
+    parser.add_argument("--context-mode",      default=CONTEXT_MODE,
                         choices=["template", "llm", "none"])
-    parser.add_argument("--context-llm",    default=CONTEXT_LLM_MODEL or "")
-    parser.add_argument("--bm25-output",    default=BM25_OUTPUT)
+    parser.add_argument("--context-llm",       default=CONTEXT_LLM_MODEL or "")
+    parser.add_argument("--bm25-output",       default=BM25_OUTPUT)
+    parser.add_argument("--vision-model",      default=OLLAMA_VISION_MODEL,
+                        help="Ollama vision model for page classification")
+    parser.add_argument("--vision-desc-model", default=OLLAMA_VISION_DESC_MODEL,
+                        help="Ollama vision model for image/diagram description")
+    parser.add_argument("--ocr-engine",        default=OCR_ENGINE,
+                        choices=["pytesseract", "ollama_vision"],
+                        help="OCR engine for image-only pages")
+    parser.add_argument("--no-classification", action="store_true",
+                        help="Disable page classification (use legacy extraction)")
     args = parser.parse_args()
 
     data_dir       = args.data_dir
@@ -1259,6 +2039,11 @@ def main():
     logger.info(f"  MinHash dedup     : {ENABLE_MINHASH_DEDUP}")
     logger.info(f"  OCR fallback      : {ENABLE_OCR_FALLBACK} "
                 f"({'available' if OCR_AVAILABLE else 'NOT installed'})")
+    use_classification = ENABLE_PAGE_CLASSIFICATION and not args.no_classification
+    logger.info(f"  Page classification: {use_classification} "
+                f"(vision model: {args.vision_model})")
+    logger.info(f"  Diagram model     : {args.vision_desc_model}")
+    logger.info(f"  OCR engine        : {args.ocr_engine}")
     logger.info("=" * 80)
 
     # ── Qdrant client ────────────────────────────────────────────────────
@@ -1294,6 +2079,23 @@ def main():
     deduplicator = MinHashDeduplicator() if ENABLE_MINHASH_DEDUP else None
     bm25_index   = BM25Index()
 
+    # ── Page classifier + content-type extractor (optional) ──────────────
+    use_classification = ENABLE_PAGE_CLASSIFICATION and not args.no_classification
+    page_classifier: Optional[OllamaVisionClassifier] = None
+    ct_extractor:    Optional[ContentTypeExtractor]   = None
+    if use_classification:
+        page_classifier = OllamaVisionClassifier(
+            ollama_url=args.ollama_url,
+            classify_model=args.vision_model,
+            describe_model=args.vision_desc_model,
+        )
+        ct_extractor = ContentTypeExtractor(
+            ollama_url=args.ollama_url,
+            classify_model=args.vision_model,
+            describe_model=args.vision_desc_model,
+            ocr_engine=args.ocr_engine,
+        )
+
     # ── Accumulators ─────────────────────────────────────────────────────
     total_files    = 0
     total_children = 0
@@ -1320,7 +2122,11 @@ def main():
                     continue
 
                 # Load document
-                text, doc_metadata = AdvancedDocumentLoader.load(path)
+                text, doc_metadata = AdvancedDocumentLoader.load(
+                    path,
+                    classifier=page_classifier,
+                    content_extractor=ct_extractor,
+                )
                 if not text or len(text.strip()) < MIN_CHUNK_SIZE:
                     logger.info("  ⊘ Empty or too short after extraction")
                     continue
@@ -1432,6 +2238,7 @@ def main():
                             "file_type": file_type,
                             "file_hash": h,
                             "chunk_type": child.chunk_type,
+                            "page_type": child.page_type,     # classified content type
                             "section_title": child.section_title,
                             "section_hierarchy": child.section_hierarchy,
                             "word_count": child.word_count,
@@ -1464,6 +2271,7 @@ def main():
                             "file_type": file_type,
                             "file_hash": h,
                             "chunk_type": parent.chunk_type,
+                            "page_type": parent.page_type,    # classified content type
                             "section_title": parent.section_title,
                             "section_hierarchy": parent.section_hierarchy,
                             "word_count": parent.word_count,

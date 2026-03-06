@@ -72,9 +72,25 @@ RRF_K          = 60        # RRF constant (k in 1/(k+rank))
 DENSE_WEIGHT   = 0.6
 SPARSE_WEIGHT  = 0.4
 
-# Cross-encoder re-ranking
+# ── Cross-encoder re-ranking ─────────────────────────────────────────────────
 USE_OLLAMA_RERANKER  = True
+# Reranker uses the embedding model for cosine-similarity reranking.
+# Change this to switch reranking model independently of embedding model.
+OLLAMA_RERANKER_MODEL = OLLAMA_MODEL          # default: same as embedding model
 MAX_RERANK_CHARS     = 2000   # truncate parent text for reranking to avoid timeouts
+
+# ── Content-type filtering ─────────────────────────────────────────────────
+# PageType constants (mirrored from ingestion for use in retrieval filters)
+class PageType:
+    TEXT     = "text"
+    TABLE    = "table"
+    IMAGE    = "image"
+    DIAGRAM  = "diagram"
+    EQUATION = "equation"
+    MIXED    = "mixed"
+    COVER    = "cover"
+    TOC      = "toc"
+    UNKNOWN  = "unknown"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,6 +113,7 @@ class ChildResult:
     section_title: str
     section_hierarchy: List[str]
     page_number: Optional[int]
+    page_type: str = PageType.TEXT   # classified page content type
     dense_score: float = 0.0
     sparse_score: float = 0.0
     hybrid_score: float = 0.0
@@ -112,7 +129,11 @@ class ParentResult:
     section_title: str
     section_hierarchy: List[str]
     page_number: Optional[int]
-    child_score: float        # best hybrid score among its matched children
+    page_type: str = PageType.TEXT   # classified page content type
+    # child_score defaults to 0.0 so ParentResult can be constructed from
+    # Qdrant payloads during re-hydration without a live retrieval score.
+    # When built from a real retrieval run, this is always set explicitly.
+    child_score: float = 0.0  # best hybrid score among its matched children
     rerank_score: float = 0.0
     final_score: float = 0.0
     matched_children: int = 1 # how many child chunks matched for this parent
@@ -127,9 +148,12 @@ class OllamaBGEM3:
     """BGE-M3 query embedder + cosine-safe reranker."""
 
     def __init__(self, base_url: str = OLLAMA_URL,
-                 model: str = OLLAMA_MODEL):
+                 model: str = OLLAMA_MODEL,
+                 reranker_model: str = ""):
         self.base_url = base_url
         self.model = model
+        # If a separate reranker model is specified, use it; else fall back to embed model
+        self.reranker_model = reranker_model or OLLAMA_RERANKER_MODEL or model
         self.dimension = 1024
         self.available = self._check()
 
@@ -179,6 +203,7 @@ class OllamaBGEM3:
 
         for doc in documents:
             try:
+                # Use dedicated reranker model for scoring (may differ from embed model)
                 d_vec = self.embed_query(doc[:MAX_RERANK_CHARS])
                 if d_vec is None:
                     scores.append(0.0)
@@ -307,6 +332,7 @@ def hybrid_search_children(
             section_title=pl.get("section_title", ""),
             section_hierarchy=pl.get("section_hierarchy", []),
             page_number=pl.get("page_number"),
+            page_type=pl.get("page_type", PageType.TEXT),
             dense_score=hit_dense.get(cid, 0.0),
             sparse_score=hit_sparse.get(cid, 0.0),
             hybrid_score=score,
@@ -369,6 +395,7 @@ def expand_to_parents(
             section_hierarchy=payload.get("section_hierarchy",
                                           best_child.section_hierarchy),
             page_number=payload.get("page_number", best_child.page_number),
+            page_type=payload.get("page_type", best_child.page_type),
             child_score=best_child.hybrid_score,
             matched_children=len(children),
             metadata=payload or best_child.metadata,
@@ -402,12 +429,18 @@ class ParentChildRetriever:
         parents_col: str = PARENTS_COL,
         ollama_url: str = OLLAMA_URL,
         ollama_model: str = OLLAMA_MODEL,
+        # Reranker model can differ from embedding model.
+        # Change OLLAMA_RERANKER_MODEL in CONFIG to affect all instances.
+        reranker_model: str = "",
         bm25_index_path: str = BM25_INDEX_PATH,
     ):
         self.client       = QdrantClient(url=qdrant_url)
         self.children_col = children_col
         self.parents_col  = parents_col
-        self.embedder     = OllamaBGEM3(ollama_url, ollama_model)
+        self.embedder     = OllamaBGEM3(
+            ollama_url, ollama_model,
+            reranker_model=reranker_model or OLLAMA_RERANKER_MODEL,
+        )
         self.bm25         = BM25QueryEncoder(bm25_index_path)
 
     def retrieve(
@@ -462,19 +495,40 @@ class ParentChildRetriever:
 
         return parents[:top_k]
 
+    def filter_by_content_type(
+        self,
+        results: List[ParentResult],
+        page_types: List[str],
+    ) -> List[ParentResult]:
+        """
+        Filter ParentResult list to include only results of the given page types.
+
+        Example — retrieve only table and diagram content:
+            filtered = retriever.filter_by_content_type(
+                results, [PageType.TABLE, PageType.DIAGRAM]
+            )
+        """
+        allowed = set(page_types)
+        return [r for r in results if r.page_type in allowed]
+
     def format_context(
         self,
         results: List[ParentResult],
         max_chars_per_result: int = MAX_RERANK_CHARS,
+        include_type_label: bool = True,
     ) -> str:
         """
-        Format retrieved parent chunks as a numbered context block suitable
-        for insertion into an LLM prompt.
+        Format retrieved parent chunks as a numbered context block for the LLM.
+
+        When `include_type_label=True` (default), the page type is shown in the
+        header so the LLM knows whether it is reading prose, a table, or a
+        diagram description.
         """
         parts: List[str] = []
         for i, r in enumerate(results, 1):
             section = " > ".join(r.section_hierarchy) if r.section_hierarchy else ""
-            header = f"[{i}] {r.filename}"
+            type_label = f"[{r.page_type}]" if include_type_label else ""
+            header = f"[{i}] {r.filename} {type_label}".strip()
             if section:
                 header += f" — {section}"
             if r.page_number:

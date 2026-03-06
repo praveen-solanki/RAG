@@ -21,6 +21,14 @@ bitsandbytes
 # pdf2image>=1.17.0
 # pytesseract>=0.3.13
 
+# V3 ingestion — vision page classification + content-type extraction
+# Requires Ollama running locally with these models pulled:
+#   ollama pull moondream   # fast page classifier (< 2B params)
+#   ollama pull llava:7b    # richer image/diagram description
+#   ollama pull llama3.2:3b # contextual enrichment (LLM mode)
+#   ollama pull bge-m3      # embeddings (already required)
+Pillow>=10.0.0              # page rendering for vision classifier
+
 
 accelerate==1.12.0
 aiosqlite==0.22.1
