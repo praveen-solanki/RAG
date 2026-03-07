@@ -224,10 +224,25 @@ OCR_TRIGGER_CHARS     = 120        # page chars below this triggers tier-2 / tie
 # TOC detection
 # AUTOSAR Table-of-Contents pages can be very long (many deeply-nested sections).
 # Raise TOC_MAX_CONTENT_CHARS so long TOC pages are still detected and skipped.
-TOC_LINE_RATIO        = 0.50
+# TOC_LINE_RATIO raised from 0.50 to 0.65 to prevent false-positive classification
+# of Normative-References sections, which also use dot-leader "....N" formatting.
+TOC_LINE_RATIO        = 0.65
 TOC_MIN_CONTENT_CHARS = 50
 TOC_MIN_LINE_COUNT    = 5
 TOC_MAX_CONTENT_CHARS = 5000       # AUTOSAR TOCs can span ~100 entries (~5 000 chars)
+
+# Headings that indicate a References/Bibliography page — these must never be
+# classified as TOC even if they contain many dot-leader lines.
+_REFERENCES_HEADING_RE = re.compile(
+    r'(?i)^\s*(normative\s+references?|informative\s+references?|'
+    r'references?\s+and\s+standards?|bibliography|'
+    r'referenced\s+documents?|related\s+standards?|'
+    r'input\s+documents?|applicable\s+documents?|'
+    r'abbreviations?\s+and\s+acronyms?)\s*$'
+)
+# Number of leading lines to scan for a References heading before the ratio
+# test; 5 is enough for any realistic page header / section title block.
+REFERENCES_HEADING_CHECK_LINES = 5
 
 # Embedding safety
 # Parent chunks are now up to 3 500 chars; allow the embedder to see the full text.
@@ -559,14 +574,21 @@ class OllamaVisionClassifier:
             return PageType.COVER, 0.65
 
         # TOC: already handled by _is_toc_page; mark as low-confidence unknown
-        # so the main pipeline may skip it.
+        # so the main pipeline may skip it.  The threshold here is kept at 0.35
+        # so the heuristic classifier can still tag TOC pages for the vision
+        # model, but the same References-heading guard that protects _is_toc_page
+        # is applied here as well.
         if text_len < TOC_MAX_CONTENT_CHARS:
             toc_re = re.compile(r"(\.\s*){2,}.*\d+\s*$")
             non_empty = [l for l in text.splitlines() if l.strip()]
             if non_empty:
-                toc_frac = sum(1 for l in non_empty if toc_re.search(l)) / len(non_empty)
-                if toc_frac > 0.35:
-                    return PageType.TOC, 0.80
+                is_references = any(
+                    _REFERENCES_HEADING_RE.match(l) for l in non_empty[:REFERENCES_HEADING_CHECK_LINES]
+                )
+                if not is_references:
+                    toc_frac = sum(1 for l in non_empty if toc_re.search(l)) / len(non_empty)
+                    if toc_frac > 0.35:
+                        return PageType.TOC, 0.80
 
         # Pure image page (almost no text, has embedded images)
         if text_len < OCR_TRIGGER_CHARS and has_images and not has_tables:
@@ -1422,6 +1444,12 @@ class EnhancedPDFLoader:
         lines = [l for l in stripped.splitlines() if l.strip()]
         if len(lines) < TOC_MIN_LINE_COUNT:
             return False
+        # Never skip pages that begin with a References/Bibliography heading —
+        # those sections use the same dot-leader format as a TOC but contain
+        # content that must be indexed (normative references, input standards, …).
+        for line in lines[:REFERENCES_HEADING_CHECK_LINES]:
+            if _REFERENCES_HEADING_RE.match(line):
+                return False
         toc = sum(
             1 for l in lines
             if EnhancedPDFLoader._TOC_LINE_RE.search(l)
@@ -1602,8 +1630,11 @@ class EnhancedPDFLoader:
                 and class_result is not None
                 and page_type in (PageType.TABLE, PageType.MIXED)
             )
+            # When the content_extractor is unavailable, TABLE pages still need
+            # pdfplumber extraction — otherwise error-code tables, normative-
+            # reference tables and specification tables are silently lost.
             if not classifier_handled and page_type not in (
-                PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM
+                PageType.IMAGE, PageType.DIAGRAM
             ):
                 if pn in plumber_pages:
                     table_text = cls._extract_tables_as_text(plumber_pages[pn])

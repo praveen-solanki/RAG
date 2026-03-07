@@ -66,7 +66,17 @@ QDRANT_URL       = "http://localhost:7333"
 OLLAMA_URL       = "http://localhost:11434"
 OLLAMA_MODEL     = "bge-m3:latest"
 FALLBACK_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
+# Preferred BM25 index name (produced by Qdrant_Database_Generation_V3.py).
+# Falls back to the generic "bm25_index.json" that may exist from earlier
+# ingestion runs so that sparse search is never silently disabled.
 BM25_INDEX_PATH  = "bm25_index_autosar.json"
+_BM25_FALLBACK   = "bm25_index.json"
+
+# ── Embedding retry knobs ─────────────────────────────────────────────────────
+# Retry failed Ollama embedding calls to handle transient service hiccups that
+# would otherwise silently return 0 results for the affected query.
+EMBEDDING_MAX_ATTEMPTS      = 3    # 1 initial attempt + 2 retries
+EMBEDDING_RETRY_DELAY_S     = 1.0  # seconds to wait between attempts
 
 # ── Retrieval knobs — AUTOSAR tuning ─────────────────────────────────────────
 # Wider initial recall because AUTOSAR queries often contain exact abbreviations
@@ -185,25 +195,42 @@ class OllamaBGEM3:
         Call Ollama /api/embeddings with an explicit model name.
         Used internally so that embed_query() and rerank() can each use
         their own configured model independently.
+
+        Retries up to 2 times (1 s wait between attempts) to handle
+        transient Ollama hiccups that would otherwise silently return 0 results.
         """
         if not self.available:
             return None
-        try:
-            r = requests.post(
-                f"{self.base_url}/api/embeddings",
-                json={"model": model, "prompt": text},
-                timeout=30,
-            )
-            if r.status_code == 200:
-                vec = r.json().get("embedding")
-                if vec:
-                    arr = np.array(vec, dtype=np.float64)
-                    if not np.isfinite(arr).all():
-                        arr[~np.isfinite(arr)] = 0.0
-                        vec = arr.tolist()
-                    return vec
-        except Exception as e:
-            logger.warning(f"Embedding error (model={model}): {e}")
+        last_err: Optional[Exception] = None
+        for attempt in range(EMBEDDING_MAX_ATTEMPTS):
+            try:
+                if attempt:
+                    time.sleep(EMBEDDING_RETRY_DELAY_S)
+                r = requests.post(
+                    f"{self.base_url}/api/embeddings",
+                    json={"model": model, "prompt": text},
+                    timeout=30,
+                )
+                if r.status_code == 200:
+                    vec = r.json().get("embedding")
+                    if vec:
+                        arr = np.array(vec, dtype=np.float64)
+                        if not np.isfinite(arr).all():
+                            arr[~np.isfinite(arr)] = 0.0
+                            vec = arr.tolist()
+                        return vec
+                else:
+                    logger.warning(
+                        f"Embedding attempt {attempt+1}/{EMBEDDING_MAX_ATTEMPTS} returned HTTP "
+                        f"{r.status_code} (model={model})"
+                    )
+            except Exception as e:
+                last_err = e
+                logger.warning(
+                    f"Embedding attempt {attempt+1}/{EMBEDDING_MAX_ATTEMPTS} error (model={model}): {e}"
+                )
+        if last_err:
+            logger.error(f"All embedding attempts failed (model={model}): {last_err}")
         return None
 
     def embed_query(self, text: str) -> Optional[List[float]]:
@@ -256,16 +283,36 @@ class BM25QueryEncoder:
         self._load(index_path)
 
     def _load(self, path: str):
-        try:
-            with open(path) as f:
-                data = json.load(f)
-            self.vocabulary = data.get("vocabulary", {})
-            self.token_idf  = data.get("token_idf",  {})
-            logger.info(
-                f"✓ BM25 index loaded ({len(self.vocabulary)} tokens) from {path}"
-            )
-        except Exception as e:
-            logger.warning(f"Could not load BM25 index from {path}: {e}")
+        # Try the requested path first; if not found, fall back to the generic
+        # index name so sparse search is never silently disabled.
+        candidates = [path]
+        if path != _BM25_FALLBACK:
+            candidates.append(_BM25_FALLBACK)
+        for candidate in candidates:
+            try:
+                with open(candidate) as f:
+                    data = json.load(f)
+                self.vocabulary = data.get("vocabulary", {})
+                self.token_idf  = data.get("token_idf",  {})
+                if candidate != path:
+                    logger.info(
+                        f"BM25 index '{path}' not found; "
+                        f"loaded fallback '{candidate}' "
+                        f"({len(self.vocabulary)} tokens)"
+                    )
+                else:
+                    logger.info(
+                        f"✓ BM25 index loaded ({len(self.vocabulary)} tokens) from {candidate}"
+                    )
+                return
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                logger.warning(f"Could not load BM25 index from {candidate}: {e}")
+                continue
+        logger.warning(
+            "No BM25 index found — sparse search will be disabled for this run."
+        )
 
     def _tokenize(self, text: str) -> List[str]:
         return [t.lower() for t in word_tokenize(text) if t.isalnum()]
