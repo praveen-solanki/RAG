@@ -38,6 +38,8 @@ from qdrant_client.models import (
     MatchValue,
     SparseVector,
 )
+from qdrant_client.http.exceptions import ApiException
+from qdrant_client.http.models import ScoredPoint
 import nltk
 from nltk.tokenize import word_tokenize
 
@@ -306,22 +308,33 @@ def hybrid_search_children(
     """
 
     # Dense search
-    dense_hits = client.search(
-        collection_name=collection,
-        query_vector=("dense", query_vec),
-        query_filter=metadata_filter,
-        limit=dense_top_k,
-        with_payload=True,
-    )
+    try:
+        dense_hits = client.query_points(
+            collection_name=collection,
+            query=query_vec,
+            using="dense",
+            query_filter=metadata_filter,
+            limit=dense_top_k,
+            with_payload=True,
+        ).points
+    except ApiException as e:
+        logger.warning(f"Dense search failed: {e}")
+        dense_hits = []
 
-    # Sparse search
-    sparse_hits = client.search(
-        collection_name=collection,
-        query_vector=("bm25", sparse_vec),
-        query_filter=metadata_filter,
-        limit=sparse_top_k,
-        with_payload=True,
-    )
+    # Sparse search — skipped when the BM25 encoder produced no tokens
+    sparse_hits: List[ScoredPoint] = []
+    if sparse_vec.indices:
+        try:
+            sparse_hits = client.query_points(
+                collection_name=collection,
+                query=sparse_vec,
+                using="bm25",
+                query_filter=metadata_filter,
+                limit=sparse_top_k,
+                with_payload=True,
+            ).points
+        except ApiException as e:
+            logger.warning(f"Sparse search failed: {e}")
 
     # RRF fusion
     scores: Dict[str, float] = defaultdict(float)
