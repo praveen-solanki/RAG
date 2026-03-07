@@ -1,118 +1,286 @@
 """
-ADVANCED RAG RETRIEVAL SYSTEM V3 — Parent-Child Collection
-===========================================================
-Companion to Qdrant_Database_Generation_V3.py.
+ADVANCED RAG INGESTION SYSTEM V3
+=================================
+New features over V2:
 
-Retrieval strategy
-------------------
-1. Hybrid search (dense BGE-M3 + sparse BM25) on the *children* collection.
-   Small child chunks give high-precision matching.
-2. Reciprocal Rank Fusion (RRF) to merge dense and sparse result lists.
-3. Expand each matched child to its *parent* chunk (larger context window).
-   If multiple children from the same parent are retrieved, the parent is
-   included only once (highest-score child wins the score).
-4. Optional cross-encoder re-ranking of the expanded parent texts.
-5. Return the parent texts to the LLM — they carry the rich context that
-   improves generation quality.
+1. Parent-Child Collection Architecture
+   - Small child chunks (≤512 chars) go into `{collection}_children` for precise retrieval
+   - Large parent chunks (≤2048 chars) go into `{collection}_parents` for rich LLM context
+   - Each child stores parent_id; retrieval returns parent text to the LLM
 
-The parent-child approach combines the precision of small-chunk retrieval
-with the contextual richness of large-chunk generation, without sacrificing
-either property.
+2. Enhanced PDF Extraction (three-tier pipeline)
+   - Tier 1: pypdfium2 (word-spacing-correct, fast)
+   - Tier 2: pdfplumber fallback for pages where pypdfium2 yields sparse text
+   - Tier 3: pytesseract OCR for pages that remain empty after Tiers 1+2
+             (requires pdf2image + tesseract installed; skipped gracefully if absent)
+   - Tables extracted as pipe-delimited text (preserves table content, not just count)
+
+3. Semantic Chunking
+   - Sentences are grouped by TF-IDF cosine similarity of sliding windows
+   - Splits only at semantic breakpoints (topic transitions), not arbitrary char counts
+   - Falls back to sentence-boundary chunking when sklearn is unavailable
+
+4. Contextual Chunk Enrichment (Anthropic research — 49% retrieval improvement)
+   - Two modes: "llm" (calls Ollama generation model) or "template" (fast, no extra LLM call)
+   - Template mode prepends document title, section hierarchy, and neighbouring sentence
+     context to every child chunk before embedding; the raw text is preserved separately
+   - LLM mode uses Ollama to generate a precise situational description of each chunk
+
+5. MinHash LSH Deduplication (replaces word-level Jaccard sliding window)
+   - 128-permutation MinHash signatures using mmh3 (already in requirements)
+   - 32-band LSH with 4 rows per band → ~83% threshold collision probability
+   - Global deduplication across ALL files processed in a single run (not per-file)
+   - O(1) lookup vs O(window × chunk_text_length) for Jaccard
+
+6. Page Classification + Content-Type-Aware Ingestion
+   - Every PDF page is classified by type: text / table / image / diagram / mixed / cover / toc
+   - Two-tier classification: fast heuristics first, then Ollama vision LLM for ambiguous pages
+   - Different extraction strategy per page type:
+     · text    -> standard pypdfium2 / pdfplumber
+     · table   -> pdfplumber structured extraction (headers + rows preserved)
+     · image   -> pytesseract OCR or Ollama vision description
+     · diagram -> Ollama vision LLM structured description prompt
+     · mixed   -> combine text + table + vision approaches
+     · cover / toc -> lightweight extraction (skip or minimal)
+   - ALL model names are top-level CONFIG variables: change once, affects everything
+   - page_type stored as payload field in Qdrant for content-type-aware retrieval
+
+7. Additional improvements
+   - Per-file statistics (accepted/skipped/dedup'ed chunks logged)
+   - Better BM25 tokenisation (stop-word-aware)
+   - Graceful degradation: every new feature can be disabled via CONFIG flags
 """
 
+import argparse
+import base64
+import io
 import json
-import logging
 import math
-import os
 import time
+import os
+import re
+import hashlib
+import uuid
 from collections import defaultdict
+from typing import Optional, List, Dict, Tuple, Set
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+import logging
 
 import numpy as np
+import pdfplumber
+import pypdfium2 as pdfium
+import docx
 import requests
+import mmh3
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    VectorParams,
+    Distance,
     Filter,
     FieldCondition,
     MatchValue,
+    PointStruct,
     SparseVector,
+    SparseVectorParams,
+    SparseIndexParams,
 )
-from qdrant_client.http.exceptions import ApiException
-from qdrant_client.http.models import ScoredPoint
+from rank_bm25 import BM25Okapi
+from sentence_transformers import SentenceTransformer
 import nltk
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import sent_tokenize, word_tokenize
+
+# Optional OCR imports (graceful degradation if not installed)
+try:
+    from pdf2image import convert_from_path as pdf_to_images
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
+# Optional Pillow (needed for rendering PDF pages to images for Ollama vision)
+try:
+    from PIL import Image as PILImage
+    PILLOW_AVAILABLE = True
+except ImportError:
+    PILImage = None
+    PILLOW_AVAILABLE = False
+
+# Optional sklearn for semantic chunking
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity as sk_cosine
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+
+# ─── NLTK bootstrap ─────────────────────────────────────────────────────────
+for _resource in ("tokenizers/punkt", "tokenizers/punkt_tab",
+                  "corpora/stopwords"):
+    try:
+        nltk.data.find(_resource)
+    except LookupError:
+        _name = _resource.split("/")[-1]
+        try:
+            nltk.download(_name, quiet=True)
+        except Exception:
+            pass
 
 try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    try:
-        nltk.download("punkt_tab", quiet=True)
-    except Exception:
-        nltk.download("punkt", quiet=True)
+    from nltk.corpus import stopwords as _sw
+    _STOP_WORDS: Set[str] = set(_sw.words("english"))
+except Exception:
+    _STOP_WORDS: Set[str] = set()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# CONFIG  (mirrors Qdrant_Database_Generation_V3.py defaults)
+# CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
 
+DATA_DIR       = os.environ.get(
+    "RAG_DATA_DIR",
+    r"/home/olj3kor/praveen/Image_dataset_generation/standards/",
+)
+# Collection name for the AUTOSAR dataset.  Override with --collection <name> or RAG_COLLECTION env var.
+COLLECTION     = os.environ.get("RAG_COLLECTION", "Autosar_RAG_v2")   # _children / _parents suffixes added automatically
+QDRANT_URL     = "http://localhost:7333"
+
+# ── Embedding (Ollama) ──────────────────────────────────────────────────────
+USE_OLLAMA_BGE_M3 = True
+OLLAMA_URL        = "http://localhost:11434"
+# Embedding model — change this variable to switch embedding model in Ollama
+OLLAMA_EMBED_MODEL = "bge-m3:latest"
+OLLAMA_MODEL       = OLLAMA_EMBED_MODEL   # alias kept for backward compatibility
+FALLBACK_MODEL     = "sentence-transformers/all-MiniLM-L6-v2"
+
+# ── Page Classification (Ollama Vision) ─────────────────────────────────────
+ENABLE_PAGE_CLASSIFICATION = True
+# Fast lightweight model for page type classification
+# Recommended: "moondream:latest" (< 2B params, very fast)
+# Alternatives:  "llava:7b", "llava:13b", "llama3.2-vision:11b"
+OLLAMA_VISION_MODEL        = "qwen2.5vl:7b"
+# Richer vision model for describing images and flow diagrams
+# Recommended: "llava:7b"   Alternatives: "llava:13b", "llama3.2-vision:11b"
+OLLAMA_VISION_DESC_MODEL   = "qwen2.5vl:32b-q4_K_M"
+
+# ── Contextual Enrichment (Ollama Generation) ────────────────────────────────
+# Text generation model for LLM-mode context enrichment
+# Recommended: "llama3.2:3b" (fast), "llama3:8b" (higher quality)
+OLLAMA_GENERATION_MODEL    = "llama3.1:latest"
+CONTEXT_LLM_MODEL          = ""        # overrides OLLAMA_GENERATION_MODEL when set
+CONTEXT_MODE               = "llm"  # "template" | "llm"
+
+# ── OCR ─────────────────────────────────────────────────────────────────────
+# "pytesseract" — fast local OCR; requires tesseract binary
+# "ollama_vision" — uses vision LLM to transcribe (no binary needed)
+OCR_ENGINE = "ollama_vision"
+
+# ── Vision classifier settings ───────────────────────────────────────────────
+# Heuristic confidence below this triggers a vision LLM call for final decision
+VISION_HEURISTIC_CONFIDENCE_THRESHOLD = 0.65
+# Scale for rendering PDF pages (higher = better quality, slower)
+PAGE_RENDER_SCALE         = 3.0
+PAGE_RENDER_JPEG_QUALITY  = 85
+MAX_VISION_RESPONSE_CHARS = 4000
+VISION_API_TIMEOUT        = 120
+
+# ── Chunking — tuned for AUTOSAR specifications ──────────────────────────────
+# AUTOSAR documents contain dense requirement blocks (200-500 chars each) grouped
+# inside numbered sub-sections.  A child size of ~800 chars captures 1-3 full
+# requirement items; a parent size of ~3 500 chars covers a complete sub-section.
+CHILD_CHUNK_SIZE    = 1000          # child chunk target size (chars)
+CHILD_CHUNK_OVERLAP = 250          # enough to overlap one requirement item
+PARENT_CHUNK_SIZE   = 3500         # parent chunk target size (chars)
+PARENT_CHUNK_OVERLAP= 350          # ~10 % of parent
+MIN_CHUNK_SIZE      = 60           # don't discard short requirement tags / IDs
+
+# Semantic chunking
+# AUTOSAR paragraphs are highly cohesive; use a lower threshold so only clear
+# topic shifts (e.g. concept description → rationale table) trigger a split.
+ENABLE_SEMANTIC_CHUNKING   = True
+SEMANTIC_SPLIT_THRESHOLD   = 0.20  # cosine sim below this → semantic boundary
+SEMANTIC_WINDOW_SIZE       = 4     # sentences per window for sim computation
+
+# Contextual enrichment
+ENABLE_CONTEXT_ENRICHMENT  = True
+# Two neighbouring sentences give enough surrounding context for requirement items
+CONTEXT_NEIGHBOUR_SENTS    = 3
+
+# MinHash dedup
+ENABLE_MINHASH_DEDUP  = True
+MINHASH_NUM_PERM      = 128        # number of permutations
+# AUTOSAR docs reuse requirement-header boilerplate; 4-char shingles are more
+# discriminative than 3-char shingles for multi-word technical terms.
+MINHASH_BANDS         = 32         # LSH bands → dedup threshold ≈ (1/25)^(1/5) ≈ 0.83
+MINHASH_ROWS          = 4          # rows per band
+MINHASH_SHINGLE_SIZE  = 4          # character n-grams for shingling
+
+# ── PDF extraction ───────────────────────────────────────────────────────────
+ENABLE_OCR_FALLBACK   = True       # use OCR_ENGINE if tier-1/2 yield sparse text
+# AUTOSAR diagram/figure pages often contain very little text alongside an image.
+# Raise the threshold slightly so OCR is triggered for those pages.
+OCR_TRIGGER_CHARS     = 300        # page chars below this triggers tier-2 / tier-3
+
+# TOC detection
+# AUTOSAR Table-of-Contents pages can be very long (many deeply-nested sections).
+# Raise TOC_MAX_CONTENT_CHARS so long TOC pages are still detected and skipped.
+TOC_LINE_RATIO        = 0.50
+TOC_MIN_CONTENT_CHARS = 50
+TOC_MIN_LINE_COUNT    = 5
+TOC_MAX_CONTENT_CHARS = 5000       # AUTOSAR TOCs can span ~100 entries (~5 000 chars)
+
+# Embedding safety
+# Parent chunks are now up to 3 500 chars; allow the embedder to see the full text.
+MAX_EMBED_CHARS = 6000
+
+# Section detection
+# AUTOSAR documents use deep numbered hierarchies and tagged requirement IDs.
+# Patterns ordered from most-specific (AUTOSAR) to most-general.
+ENABLE_SECTION_AWARE = True
+SECTION_PATTERNS = [
+    # AUTOSAR deep-numbered section headers: "10.3.4.2 Module Overview"
+    # or "10.3.4.2 [SWS_Os_00042] Some Requirement Title".
+    # (?:[A-Z]|\[) is explicit: the section title starts with a capital letter
+    # OR an opening bracket (requirement-ID-prefixed section titles).
+    r'^\d+(\.\d+){1,5}\s+(?:[A-Z]|\[)',
+    # AUTOSAR tagged requirement IDs used as standalone header lines:
+    # [SWS_Os_00042], [SRS_ETHTSYN_00001], [ECUC_Com_00012], [AP_SomeModule_00001] …
+    # Module names are CamelCase (Os, LinIf) or ALL_CAPS (ETHTSYN).
+    # Underscores within the module portion are intentionally allowed to cover
+    # compound module names such as [SWS_Lin_Interface_00001].
+    r'^\[(?:SWS|SRS|RS|ECUC|TPS|CP|AP|ASWS|TR|EXP|MOD|SRLG|PRS|CONC|BSW|FUNC|COM|SPEC)_[A-Za-z0-9_]+\]',
+    # Markdown headers (kept for any Markdown-exported AUTOSAR docs)
+    r'^#{1,6}\s+(.+)$',
+    # Single-level numbered sections: "1. Introduction"
+    r'^\d+\.\s+([A-Z].+)$',
+    # Title-case field label with colon: "Description:", "Rationale:", "Use Case:"
+    # Matches 3–41 total chars (1 uppercase initial + 2–40 more alphanumeric/space).
+    r'^([A-Z][A-Za-z ]{2,40}):$',
+    # All-caps headings (5–50 chars to avoid matching short enumerated constants).
+    # Minimum of 5 total chars: [A-Z] + 4 more uppercase/space chars.
+    r'^([A-Z][A-Z\s]{4,49})$',
+    # Inline table markers injected by _extract_table_structured / _extract_tables_as_text.
+    # Both variants must be listed because extraction uses different casing:
+    #   _extract_table_structured → "[TABLE N]"  (all-caps)
+    #   _extract_tables_as_text   → "[Table N]"  (title-case)
+    # These patterns make detect_sections() split each table into its own
+    # DocumentSection(section_type="table") so it is chunked row-by-row.
+    r'^\[TABLE \d+\]$',
+    r'^\[Table \d+\]$',
+    # Visual-content markers injected by _extract_images_as_text().
+    # Each embedded raster image gets [IMAGE N] and each vector diagram /
+    # vision-described figure gets [DIAGRAM N].  detect_sections() turns them
+    # into separate DocumentSection objects (section_type="image"/"diagram")
+    # so visual content is never merged into surrounding prose chunks.
+    r'^\[IMAGE \d+\]$',
+    r'^\[DIAGRAM \d+\]$',
+]
+
+BM25_OUTPUT = "bm25_index_autosar.json"
+
 # ═══════════════════════════════════════════════════════════════════════════
-# CONFIG  (mirrors Qdrant_Database_Generation_V3.py defaults — AUTOSAR tuned)
+# Logging
 # ═══════════════════════════════════════════════════════════════════════════
-
-COLLECTION_BASE  = os.environ.get("RAG_COLLECTION", "autosar_v3")
-CHILDREN_COL     = f"{COLLECTION_BASE}_children"
-PARENTS_COL      = f"{COLLECTION_BASE}_parents"
-QDRANT_URL       = "http://localhost:7333"
-OLLAMA_URL       = "http://localhost:11434"
-OLLAMA_MODEL     = "bge-m3:latest"
-FALLBACK_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
-# Preferred BM25 index name (produced by Qdrant_Database_Generation_V3.py).
-# Falls back to the generic "bm25_index.json" that may exist from earlier
-# ingestion runs so that sparse search is never silently disabled.
-BM25_INDEX_PATH  = "bm25_index_autosar.json"
-_BM25_FALLBACK   = "bm25_index.json"
-
-# ── Embedding retry knobs ─────────────────────────────────────────────────────
-# Retry failed Ollama embedding calls to handle transient service hiccups that
-# would otherwise silently return 0 results for the affected query.
-EMBEDDING_MAX_ATTEMPTS      = 3    # 1 initial attempt + 2 retries
-EMBEDDING_RETRY_DELAY_S     = 1.0  # seconds to wait between attempts
-
-# ── Retrieval knobs — AUTOSAR tuning ─────────────────────────────────────────
-# Wider initial recall because AUTOSAR queries often contain exact abbreviations
-# or requirement IDs that need both dense and sparse signals to surface.
-CHILD_DENSE_TOP_K  = 60
-CHILD_SPARSE_TOP_K = 60
-CHILD_HYBRID_TOP_K = 35   # after RRF fusion
-FINAL_TOP_K        = 10   # after parent-expansion + re-ranking
-
-# Fusion weights for RRF
-# AUTOSAR queries rely heavily on exact terminology (SWC, BSW, ECU, requirement IDs)
-# so BM25 sparse signals are equally important as dense semantic signals.
-RRF_K          = 60        # RRF constant (k in 1/(k+rank))
-DENSE_WEIGHT   = 0.5
-SPARSE_WEIGHT  = 0.5
-
-# ── Cross-encoder re-ranking ─────────────────────────────────────────────────
-USE_OLLAMA_RERANKER  = True
-# Reranker uses the embedding model for cosine-similarity reranking.
-# Change this to switch reranking model independently of embedding model.
-OLLAMA_RERANKER_MODEL = OLLAMA_MODEL          # default: same as embedding model
-# AUTOSAR parent chunks are up to 3 500 chars; allow the reranker to see more text.
-MAX_RERANK_CHARS     = 3000
-
-# ── Content-type filtering ─────────────────────────────────────────────────
-# PageType constants (mirrored from ingestion for use in retrieval filters)
-class PageType:
-    TEXT     = "text"
-    TABLE    = "table"
-    IMAGE    = "image"
-    DIAGRAM  = "diagram"
-    EQUATION = "equation"
-    MIXED    = "mixed"
-    COVER    = "cover"
-    TOC      = "toc"
-    UNKNOWN  = "unknown"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -122,202 +290,2031 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Data structures
+# Page Types
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PageType:
+    """
+    String constants for every page content type.
+
+    Use these constants throughout the pipeline so that filtering by
+    content type in Qdrant always uses the same canonical strings.
+    """
+    TEXT     = "text"       # dense prose / paragraphs
+    TABLE    = "table"      # primarily tabular data
+    IMAGE    = "image"      # photograph or raster graphic
+    DIAGRAM  = "diagram"    # flow chart, block diagram, UML, schematic
+    EQUATION = "equation"   # mathematical equations / formulae
+    MIXED    = "mixed"      # combination of multiple types
+    COVER    = "cover"      # title / cover page
+    TOC      = "toc"        # table of contents
+    UNKNOWN  = "unknown"    # classifier was unable to determine type
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Data classes
 # ═══════════════════════════════════════════════════════════════════════════
 
 @dataclass
-class ChildResult:
-    """A retrieved child chunk with its scores."""
-    child_id: str
-    parent_id: str
+class DocumentSection:
+    title: str
     content: str
-    filename: str
-    section_title: str
-    section_hierarchy: List[str]
-    page_number: Optional[int]
-    page_type: str = PageType.TEXT   # classified page content type
-    dense_score: float = 0.0
-    sparse_score: float = 0.0
-    hybrid_score: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    level: int
+    page_number: Optional[int] = None
+    section_type: str = "text"
+    section_hierarchy: Optional[List[str]] = None
+
+    def __post_init__(self):
+        if self.section_hierarchy is None:
+            self.section_hierarchy = [self.title]
 
 
 @dataclass
-class ParentResult:
-    """A parent chunk expanded from child hits, ready for LLM consumption."""
-    parent_id: str
-    content: str              # full parent text (the context fed to the LLM)
-    filename: str
+class ParentChunk:
+    """Large context window stored in the parents collection."""
+    text: str
     section_title: str
     section_hierarchy: List[str]
     page_number: Optional[int]
-    page_type: str = PageType.TEXT   # classified page content type
-    # child_score defaults to 0.0 so ParentResult can be constructed from
-    # Qdrant payloads during re-hydration without a live retrieval score.
-    # When built from a real retrieval run, this is always set explicitly.
-    child_score: float = 0.0  # best hybrid score among its matched children
-    rerank_score: float = 0.0
-    final_score: float = 0.0
-    matched_children: int = 1 # how many child chunks matched for this parent
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    chunk_type: str
+    page_type: str = PageType.TEXT          # classified page type (PageType.*)
+    word_count: int = 0
+    start_char: int = 0
+    end_char: int = 0
+    parent_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclass
+class ChildChunk:
+    """Small precision chunk stored in the children collection."""
+    text: str
+    enriched_text: str          # text with contextual prefix (used for embedding)
+    section_title: str
+    section_hierarchy: List[str]
+    page_number: Optional[int]
+    chunk_type: str
+    page_type: str = PageType.TEXT          # classified page type (PageType.*)
+    word_count: int = 0
+    sentence_count: int = 0
+    start_char: int = 0
+    end_char: int = 0
+    parent_id: str = ""         # FK -> ParentChunk.parent_id
+    child_index: int = 0        # position within parent
+
+
+
+
+
+
+@dataclass
+class PageClassificationResult:
+    """Holds the classification outcome for a single PDF page."""
+    page_type: str                  # one of PageType.*
+    confidence: float               # 0-1 heuristic or 0/1 from LLM
+    description: str                # short natural-language description of the page
+    has_text: bool
+    has_tables: bool
+    has_images: bool
+    text_density: float             # chars / estimated_page_area
+    used_vision_model: bool = False # True when the Ollama vision LLM was consulted
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Embedder (same interface as V3 ingestion)
+# Ollama Vision Classifier
 # ═══════════════════════════════════════════════════════════════════════════
 
-class OllamaBGEM3:
-    """BGE-M3 query embedder + cosine-safe reranker."""
+class OllamaVisionClassifier:
+    """
+    Two-tier AI-powered page classifier.
 
-    def __init__(self, base_url: str = OLLAMA_URL,
-                 model: str = OLLAMA_MODEL,
-                 reranker_model: str = ""):
-        self.base_url = base_url
-        self.model = model
-        # If a separate reranker model is specified, use it; else fall back to embed model
-        self.reranker_model = reranker_model or OLLAMA_RERANKER_MODEL or model
-        self.dimension = 1024
-        self.available = self._check()
+    Tier 1 (heuristic) — fast, no model call needed:
+        Inspects text density, table count, and embedded-image presence
+        using metadata already extracted by pypdfium2 / pdfplumber.
+        Returns a (PageType, confidence) pair.
 
-    def _check(self) -> bool:
+    Tier 2 (vision LLM) — called when confidence < VISION_HEURISTIC_CONFIDENCE_THRESHOLD
+        or when the page appears to contain images/diagrams:
+        Renders the page to a JPEG, encodes it as base64, and sends it to
+        the Ollama vision model (default: moondream:latest).
+        The model is asked to classify the page and give a brief description.
+
+    All model names are configurable via CONFIG variables.
+    """
+
+    # Prompt used to classify page type with a vision model
+    _CLASSIFY_PROMPT = (
+        "You are a document analysis assistant. Look at this page from a technical document "
+        "and classify it. Choose EXACTLY ONE type from this list:\n"
+        "  text, table, image, diagram, equation, mixed, cover, toc\n\n"
+        "Definitions:\n"
+        "  text     - dense paragraphs, mostly prose\n"
+        "  table    - rows and columns of data\n"
+        "  image    - photograph, raster graphic, screenshot\n"
+        "  diagram  - flow chart, block diagram, UML, schematic, architecture diagram\n"
+        "  equation - mathematical or chemical equations dominate the page\n"
+        "  mixed    - two or more content types side by side\n"
+        "  cover    - title page / cover page\n"
+        "  toc      - table of contents\n\n"
+        "Reply with a JSON object like: "
+        '{"type": "<type>", "description": "<one sentence>"}\n'
+        "Reply with JSON only, no markdown, no extra text."
+    )
+
+    # Prompt used to get a rich description of an image/diagram page
+    _DESCRIBE_IMAGE_PROMPT = (
+        "Describe this image from a technical document in detail. "
+        "What does it show? Extract any text visible in the image. "
+        "If it is a diagram or flow chart, describe the flow, components, and relationships. "
+        "Be precise and comprehensive. Reply in plain text."
+    )
+
+    _DESCRIBE_DIAGRAM_PROMPT = (
+        "This is a technical diagram from an engineering or software document. "
+        "Describe it thoroughly: what type of diagram is it, what are the main components, "
+        "what process or architecture does it represent, and what are the key relationships "
+        "or data flows shown? Extract all visible text labels. "
+        "Format your response as structured text that can be indexed for retrieval."
+    )
+
+    def __init__(
+        self,
+        ollama_url: str = OLLAMA_URL,
+        classify_model: str = OLLAMA_VISION_MODEL,
+        describe_model: str = OLLAMA_VISION_DESC_MODEL,
+    ):
+        self.ollama_url     = ollama_url
+        self.classify_model = classify_model
+        self.describe_model = describe_model
+        self._available     = self._check_ollama()
+
+    def _check_ollama(self) -> bool:
         try:
-            r = requests.get(f"{self.base_url}/api/tags", timeout=3)
+            r = requests.get(f"{self.ollama_url}/api/tags", timeout=3)
             if r.status_code == 200:
-                logger.info(f"✓ Ollama at {self.base_url}")
+                logger.info(f"✓ OllamaVisionClassifier connected to {self.ollama_url}")
                 return True
         except Exception:
             pass
-        logger.warning(f"✗ Ollama unavailable at {self.base_url}")
+        logger.warning(
+            "OllamaVisionClassifier: Ollama unavailable — will use heuristics only."
+        )
         return False
 
-    def _embed(self, text: str, model: str) -> Optional[List[float]]:
-        """
-        Call Ollama /api/embeddings with an explicit model name.
-        Used internally so that embed_query() and rerank() can each use
-        their own configured model independently.
+    # ── helpers ─────────────────────────────────────────────────────────────
 
-        Retries up to 2 times (1 s wait between attempts) to handle
-        transient Ollama hiccups that would otherwise silently return 0 results.
+    @staticmethod
+    def _render_page_to_jpeg(pdf_path: str, page_index: int,
+                              scale: float = PAGE_RENDER_SCALE,
+                              quality: int = PAGE_RENDER_JPEG_QUALITY) -> Optional[str]:
         """
-        if not self.available:
+        Render a single PDF page to a JPEG and return it as a base64 string.
+        Returns None if pypdfium2 or Pillow is unavailable.
+        """
+        if not PILLOW_AVAILABLE:
             return None
-        last_err: Optional[Exception] = None
-        for attempt in range(EMBEDDING_MAX_ATTEMPTS):
-            try:
-                if attempt:
-                    time.sleep(EMBEDDING_RETRY_DELAY_S)
-                r = requests.post(
-                    f"{self.base_url}/api/embeddings",
-                    json={"model": model, "prompt": text},
-                    timeout=30,
-                )
-                if r.status_code == 200:
-                    vec = r.json().get("embedding")
-                    if vec:
-                        arr = np.array(vec, dtype=np.float64)
-                        if not np.isfinite(arr).all():
-                            arr[~np.isfinite(arr)] = 0.0
-                            vec = arr.tolist()
-                        return vec
-                else:
-                    logger.warning(
-                        f"Embedding attempt {attempt+1}/{EMBEDDING_MAX_ATTEMPTS} returned HTTP "
-                        f"{r.status_code} (model={model})"
-                    )
-            except Exception as e:
-                last_err = e
-                logger.warning(
-                    f"Embedding attempt {attempt+1}/{EMBEDDING_MAX_ATTEMPTS} error (model={model}): {e}"
-                )
-        if last_err:
-            logger.error(f"All embedding attempts failed (model={model}): {last_err}")
-        return None
-
-    def embed_query(self, text: str) -> Optional[List[float]]:
-        """Embed `text` using the primary embedding model (self.model)."""
-        return self._embed(text, self.model)
-
-    def rerank(self, query: str, documents: List[str]) -> List[float]:
-        """
-        Cosine-similarity reranking.
-        Uses `self.reranker_model` (which may differ from `self.model`)
-        so that a dedicated reranking model can be configured independently
-        via the OLLAMA_RERANKER_MODEL CONFIG variable.
-        """
-        scores: List[float] = []
         try:
-            q_vec = self._embed(query, self.reranker_model)
-            if q_vec is None:
-                return [0.0] * len(documents)
-            q_arr = np.array(q_vec, dtype=np.float64)
-            q_norm = np.linalg.norm(q_arr)
+            doc = pdfium.PdfDocument(pdf_path)
+            try:
+                page = doc[page_index]
+                try:
+                    bitmap = page.render(scale=scale)
+                    pil_img = bitmap.to_pil()
+                    buf = io.BytesIO()
+                    pil_img.save(buf, format="JPEG", quality=quality)
+                    return base64.b64encode(buf.getvalue()).decode("utf-8")
+                finally:
+                    page.close()
+            finally:
+                doc.close()
+        except Exception as e:
+            logger.debug(f"Page render error for page {page_index+1}: {e}")
+            return None
+
+    def _call_vision(self, prompt: str, b64_image: str,
+                     model: Optional[str] = None,
+                     timeout: int = VISION_API_TIMEOUT) -> str:
+        """
+        Call an Ollama vision model with an image and a text prompt.
+        Returns the response text, or "" on failure.
+        """
+        if not self._available or not b64_image:
+            return ""
+        m = model or self.classify_model
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": m,
+                    "prompt": prompt,
+                    "images": [b64_image],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 256},
+                },
+                timeout=timeout,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()[:MAX_VISION_RESPONSE_CHARS]
+            logger.debug(f"Vision API HTTP {resp.status_code}: {resp.text[:80]}")
+        except Exception as e:
+            logger.debug(f"Vision API error: {e}")
+        return ""
+
+    # ── Tier 1: fast heuristic ───────────────────────────────────────────────
+
+    @staticmethod
+    def _heuristic_classify(
+        tier1_text: str,
+        plumber_page,          # pdfplumber page object (may be None)
+        page_index: int,
+    ) -> Tuple[str, float]:
+        """
+        Returns (PageType, confidence) using lightweight metadata signals only.
+        Confidence is a value in [0, 1]; values below
+        VISION_HEURISTIC_CONFIDENCE_THRESHOLD will trigger a vision LLM call.
+        """
+        text = tier1_text.strip()
+        text_len = len(text)
+
+        has_tables = False
+        table_count = 0
+        has_images = False
+        img_count = 0
+
+        if plumber_page is not None:
+            try:
+                tables = plumber_page.extract_tables()
+                table_count = len(tables) if tables else 0
+                has_tables = table_count > 0
+            except Exception:
+                pass
+            try:
+                imgs = plumber_page.images
+                img_count = len(imgs) if imgs else 0
+                has_images = img_count > 0
+            except Exception:
+                pass
+
+        # Cover page: very short, often contains a single title and date
+        if text_len < 150 and not has_tables and not has_images:
+            return PageType.COVER, 0.65
+
+        # TOC: already handled by _is_toc_page; mark as low-confidence unknown
+        # so the main pipeline may skip it.
+        if text_len < TOC_MAX_CONTENT_CHARS:
+            toc_re = re.compile(r"(\.\s*){2,}.*\d+\s*$")
+            non_empty = [l for l in text.splitlines() if l.strip()]
+            if non_empty:
+                toc_frac = sum(1 for l in non_empty if toc_re.search(l)) / len(non_empty)
+                if toc_frac > 0.35:
+                    return PageType.TOC, 0.80
+
+        # Pure image page (almost no text, has embedded images)
+        if text_len < OCR_TRIGGER_CHARS and has_images and not has_tables:
+            return PageType.IMAGE, 0.72
+
+        # Diagram page heuristic: no text layer but has images with certain aspect ratios
+        if text_len < OCR_TRIGGER_CHARS and has_images:
+            return PageType.DIAGRAM, 0.55   # low confidence → will trigger vision
+
+        # Table-bearing page.
+        # AUTOSAR pages that are primarily tabular often have header/caption text
+        # alongside the tables (> 300 chars).  We classify them as TABLE when the
+        # tables are the dominant content (many tables, or little surrounding text),
+        # and as MIXED otherwise.  In both cases every individual table is chunked
+        # separately by detect_sections(), so the classification only determines
+        # which extraction strategy is used for the non-table text portion.
+        if has_tables and table_count >= 1:
+            # Multiple tables on a single page → almost certainly TABLE-dominant
+            if table_count > 1:
+                return PageType.TABLE, 0.85
+            # Single table but very little text → TABLE
+            if text_len < 600:
+                return PageType.TABLE, 0.85
+            # Single table alongside substantial text → MIXED
+            return PageType.MIXED, 0.70
+
+        # Dense text page
+        if text_len > 500 and not has_images:
+            return PageType.TEXT, 0.90
+
+        if text_len > 200:
+            return PageType.TEXT, 0.75
+
+        # Low-text, no structural signals
+        if has_images:
+            return PageType.IMAGE, 0.55    # likely image, but trigger vision
+        return PageType.UNKNOWN, 0.40
+
+    # ── Tier 2: vision LLM ──────────────────────────────────────────────────
+
+    def _vision_classify(self, pdf_path: str, page_index: int) -> Tuple[str, str]:
+        """
+        Classify page type with an Ollama vision model.
+        Returns (PageType, description) or (PageType.UNKNOWN, "") on failure.
+        """
+        b64 = self._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return PageType.UNKNOWN, ""
+
+        raw = self._call_vision(self._CLASSIFY_PROMPT, b64, self.classify_model)
+        if not raw:
+            return PageType.UNKNOWN, ""
+
+        # Parse JSON response
+        try:
+            # Strip markdown code fences if present
+            cleaned = re.sub(r"```[a-z]*\n?", "", raw).strip().strip("`")
+            data = json.loads(cleaned)
+            ptype = data.get("type", "unknown").lower().strip()
+            desc  = data.get("description", "")
+            valid = {PageType.TEXT, PageType.TABLE, PageType.IMAGE,
+                     PageType.DIAGRAM, PageType.EQUATION, PageType.MIXED,
+                     PageType.COVER, PageType.TOC}
+            if ptype not in valid:
+                ptype = PageType.UNKNOWN
+            return ptype, desc
         except Exception:
-            return [0.0] * len(documents)
+            # Fallback: look for type keyword in freeform response
+            low = raw.lower()
+            for pt in [PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM,
+                       PageType.EQUATION, PageType.COVER, PageType.TOC,
+                       PageType.MIXED, PageType.TEXT]:
+                if pt in low:
+                    return pt, raw[:200]
+            return PageType.UNKNOWN, raw[:200]
 
-        for doc in documents:
+    # ── Public API ──────────────────────────────────────────────────────────
+
+    def classify(
+        self,
+        pdf_path: str,
+        page_index: int,
+        tier1_text: str,
+        plumber_page,
+    ) -> PageClassificationResult:
+        """
+        Classify a single PDF page.  Returns a PageClassificationResult.
+
+        Steps:
+        1. Run fast heuristic (no model call).
+        2. If confidence < threshold OR page has images, call vision LLM.
+        """
+        text = tier1_text.strip()
+        has_tables = False
+        has_images = False
+
+        if plumber_page is not None:
             try:
-                d_vec = self._embed(doc[:MAX_RERANK_CHARS], self.reranker_model)
-                if d_vec is None:
-                    scores.append(0.0)
-                    continue
-                d_arr = np.array(d_vec, dtype=np.float64)
-                d_norm = np.linalg.norm(d_arr)
-                if q_norm < 1e-10 or d_norm < 1e-10:
-                    scores.append(0.0)
-                else:
-                    scores.append(float(np.dot(q_arr, d_arr) / (q_norm * d_norm)))
-            except Exception as e:
-                logger.debug(f"Rerank error: {e}")
-                scores.append(0.0)
-        return scores
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# BM25 index loader (for sparse query vector)
-# ═══════════════════════════════════════════════════════════════════════════
-
-class BM25QueryEncoder:
-    def __init__(self, index_path: str = BM25_INDEX_PATH):
-        self.vocabulary: Dict[str, int] = {}
-        self.token_idf: Dict[str, float] = {}
-        self._load(index_path)
-
-    def _load(self, path: str):
-        # Try the requested path first; if not found, fall back to the generic
-        # index name so sparse search is never silently disabled.
-        candidates = [path]
-        if path != _BM25_FALLBACK:
-            candidates.append(_BM25_FALLBACK)
-        for candidate in candidates:
+                has_tables = bool(plumber_page.extract_tables())
+            except Exception:
+                pass
             try:
-                with open(candidate) as f:
-                    data = json.load(f)
-                self.vocabulary = data.get("vocabulary", {})
-                self.token_idf  = data.get("token_idf",  {})
-                if candidate != path:
-                    logger.info(
-                        f"BM25 index '{path}' not found; "
-                        f"loaded fallback '{candidate}' "
-                        f"({len(self.vocabulary)} tokens)"
-                    )
-                else:
-                    logger.info(
-                        f"✓ BM25 index loaded ({len(self.vocabulary)} tokens) from {candidate}"
-                    )
-                return
-            except FileNotFoundError:
-                continue
-            except Exception as e:
-                logger.warning(f"Could not load BM25 index from {candidate}: {e}")
-                continue
-        logger.warning(
-            "No BM25 index found — sparse search will be disabled for this run."
+                has_images = bool(plumber_page.images)
+            except Exception:
+                pass
+
+        text_density = len(text) / max(1, 600 * 800)   # rough page area chars/pixel
+
+        h_type, h_conf = self._heuristic_classify(tier1_text, plumber_page, page_index)
+        description = ""
+        used_vision = False
+
+        needs_vision = (
+            ENABLE_PAGE_CLASSIFICATION
+            and self._available
+            and PILLOW_AVAILABLE
+            and (
+                h_conf < VISION_HEURISTIC_CONFIDENCE_THRESHOLD
+                or has_images
+                or h_type in (PageType.DIAGRAM, PageType.IMAGE, PageType.UNKNOWN)
+            )
         )
 
-    def _tokenize(self, text: str) -> List[str]:
-        return [t.lower() for t in word_tokenize(text) if t.isalnum()]
+        if needs_vision:
+            v_type, description = self._vision_classify(pdf_path, page_index)
+            used_vision = True
+            # Vision model wins when it disagrees with low-confidence heuristic
+            if v_type != PageType.UNKNOWN:
+                final_type = v_type
+            else:
+                final_type = h_type if h_type != PageType.UNKNOWN else PageType.TEXT
+        else:
+            final_type = h_type if h_type != PageType.UNKNOWN else PageType.TEXT
 
-    def encode(self, text: str) -> SparseVector:
+        return PageClassificationResult(
+            page_type=final_type,
+            confidence=1.0 if used_vision else h_conf,
+            description=description,
+            has_text=len(text) > 50,
+            has_tables=has_tables,
+            has_images=has_images,
+            text_density=text_density,
+            used_vision_model=used_vision,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Content-Type Extractor
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ContentTypeExtractor:
+    """
+    Routes each classified PDF page to the appropriate extraction method.
+
+    PageType  →  Strategy
+    ─────────────────────────────────────────────────────────────────────────
+    TEXT      →  pypdfium2 text (already extracted) — returned as-is
+    TABLE     →  pdfplumber structured table (headers + rows)
+    IMAGE     →  pytesseract OCR  OR  Ollama vision transcription
+    DIAGRAM   →  Ollama llava vision description (structured prompt)
+    EQUATION  →  pypdfium2 text + vision description fallback
+    MIXED     →  combine text + table + vision approaches
+    COVER     →  pypdfium2 text (usually short)
+    TOC       →  skip (return empty string)
+
+    All model names are read from CONFIG variables.
+    """
+
+    def __init__(
+        self,
+        ollama_url: str = OLLAMA_URL,
+        classify_model: str = OLLAMA_VISION_MODEL,
+        describe_model: str = OLLAMA_VISION_DESC_MODEL,
+        ocr_engine: str = OCR_ENGINE,
+    ):
+        self.ollama_url     = ollama_url
+        self.classify_model = classify_model
+        self.describe_model = describe_model
+        self.ocr_engine     = ocr_engine
+        self._available     = self._check_ollama()
+
+    def _check_ollama(self) -> bool:
+        try:
+            r = requests.get(f"{self.ollama_url}/api/tags", timeout=3)
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    # ── OCR strategies ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _ocr_pytesseract(pdf_path: str, page_index: int) -> str:
+        """Use pytesseract to OCR a single page. Returns text or ""."""
+        if not OCR_AVAILABLE:
+            return ""
+        try:
+            images = pdf_to_images(
+                pdf_path, first_page=page_index + 1, last_page=page_index + 1, dpi=200
+            )
+            if images:
+                return pytesseract.image_to_string(images[0])
+        except Exception as e:
+            logger.debug(f"pytesseract OCR page {page_index+1}: {e}")
+        return ""
+
+    def _ocr_ollama_vision(self, pdf_path: str, page_index: int) -> str:
+        """Use Ollama vision LLM to transcribe a page. Returns text or ""."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "Transcribe all text visible on this page exactly as it appears. "
+            "Preserve formatting, numbers, and special characters. "
+            "If there are tables, reproduce them in pipe-delimited format. "
+            "Reply with the transcribed text only."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.classify_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 1024},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"OCR via Ollama vision page {page_index+1}: {e}")
+        return ""
+
+    def _ocr(self, pdf_path: str, page_index: int) -> str:
+        """Dispatch OCR to the configured engine."""
+        if self.ocr_engine == "ollama_vision":
+            text = self._ocr_ollama_vision(pdf_path, page_index)
+            if not text:
+                text = self._ocr_pytesseract(pdf_path, page_index)
+        else:
+            text = self._ocr_pytesseract(pdf_path, page_index)
+            if not text:
+                text = self._ocr_ollama_vision(pdf_path, page_index)
+        return text
+
+    # ── Vision description ───────────────────────────────────────────────────
+
+    def _describe_diagram(self, pdf_path: str, page_index: int) -> str:
+        """Ask Ollama llava to give a structured description of a diagram."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "This is a technical diagram from an engineering or software document. "
+            "Describe it thoroughly: what type of diagram is it, what are the main components, "
+            "what process or architecture does it represent, and what are the key relationships "
+            "or data flows shown? Extract all visible text labels. "
+            "Format your response as structured text suitable for retrieval."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.describe_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 800},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"Diagram description page {page_index+1}: {e}")
+        return ""
+
+    def _describe_image(self, pdf_path: str, page_index: int) -> str:
+        """Ask Ollama llava to describe an image page."""
+        if not self._available or not PILLOW_AVAILABLE:
+            return ""
+        b64 = OllamaVisionClassifier._render_page_to_jpeg(pdf_path, page_index)
+        if not b64:
+            return ""
+        prompt = (
+            "Describe this image from a technical document in detail. "
+            "What does it show? Extract any text visible in the image. "
+            "If it contains a chart, table, or graph, describe the data and labels precisely. "
+            "Be comprehensive so the description can be used for information retrieval."
+        )
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.describe_model,
+                    "prompt": prompt,
+                    "images": [b64],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 600},
+                },
+                timeout=VISION_API_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("response", "").strip()
+        except Exception as e:
+            logger.debug(f"Image description page {page_index+1}: {e}")
+        return ""
+
+    # ── Table extraction ────────────────────────────────────────────────────
+
+    # Minimum pixel size thresholds for meaningful raster images:
+    #   _MIN_IMAGE_DIMENSION: each side must exceed 20 px to exclude 1×1
+    #     tracking pixels and small PDF-form decoration glyphs.
+    #   _MIN_IMAGE_AREA: total pixel area must exceed 1 000 px² to exclude
+    #     narrow-but-tall or wide-but-short rule-line images.
+    _MIN_IMAGE_DIMENSION: int = 20
+    _MIN_IMAGE_AREA: int = 1000
+
+    @staticmethod
+    def _is_meaningful_image(img: dict) -> bool:
+        """
+        Return True if the pdfplumber image object represents a substantial
+        visual element worth indexing as its own chunk.
+
+        Tiny images (tracking pixels, small icons, PDF form decorations) are
+        filtered out to avoid noise.  We check the source resolution in pixels
+        because PDF point-space dimensions can be misleading.
+        """
+        try:
+            # pdfplumber stores source resolution as 'srcsize': (width_px, height_px)
+            src = img.get("srcsize") or ()
+            w_px = src[0] if len(src) > 0 else img.get("width", 0)
+            h_px = src[1] if len(src) > 1 else img.get("height", 0)
+            min_d = ContentTypeExtractor._MIN_IMAGE_DIMENSION
+            min_a = ContentTypeExtractor._MIN_IMAGE_AREA
+            return bool(w_px and h_px
+                        and w_px > min_d and h_px > min_d
+                        and w_px * h_px > min_a)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _has_vector_drawings(plumber_page) -> bool:
+        """
+        Return True when the page contains a non-trivial network of vector paths
+        that is likely a diagram or flow chart.
+
+        We look for:
+        • ≥ 3 curve objects (Bezier / arc segments — essentially never produced
+          by simple table borders or page frames).
+        • ≥ 10 non-degenerate line segments (a dense grid of lines is a strong
+          indicator of a flow chart, block diagram, or schematic).
+
+        Degenerate lines (zero-length stubs) are excluded because pdfplumber
+        sometimes reports them for invisible form-field anchors.
+        """
+        if plumber_page is None:
+            return False
+        try:
+            if len(plumber_page.curves or []) >= 3:
+                return True
+            non_degenerate = [
+                ln for ln in (plumber_page.lines or [])
+                if ln.get("width", 0) != 0 or ln.get("height", 0) != 0
+            ]
+            return len(non_degenerate) >= 10
+        except Exception:
+            return False
+
+    def _extract_images_as_text(
+        self,
+        pdf_path: str,
+        page_index: int,
+        plumber_page,
+    ) -> List[str]:
+        """
+        For each meaningful visual element on a page, produce a tagged text
+        block ([IMAGE N] or [DIAGRAM N]) so that detect_sections() creates a
+        separate DocumentSection per visual element.
+
+        Strategy
+        --------
+        1. Raster images (detected by pdfplumber as 'images'):
+           • Each meaningful image gets its own [IMAGE N] block.
+           • All images on the page share one full-page vision description
+             (individual image cropping would require complex PDF rendering).
+             A size annotation distinguishes each entry so the chunk is not
+             a duplicate of its siblings.
+           • After the image blocks, if the page also carries significant
+             vector drawings (curves / dense line networks), a separate
+             [DIAGRAM 1] block is emitted with the diagram-specific prompt so
+             that vector-drawn flow charts are not silently dropped.
+        2. Vector diagrams / figures (no raster images but the page was
+           classified as having visual content):
+           • Emit one [DIAGRAM 1] block with the vision description.
+           • If no vision model is available, skip — we cannot describe vector
+             art without one, and an empty chunk adds no retrieval value.
+
+        Returns a list of tagged strings (one per visual element).
+        """
+        results: List[str] = []
+        meaningful_imgs: List[dict] = []
+        try:
+            raw_imgs = plumber_page.images if plumber_page else []
+            meaningful_imgs = [img for img in (raw_imgs or [])
+                               if self._is_meaningful_image(img)]
+        except Exception:
+            pass
+
+        if meaningful_imgs:
+            # One full-page description is shared by all raster images because
+            # _describe_image() renders the entire page — individual crops are
+            # not feasible without complex PDF rendering.
+            shared_desc = self._describe_image(pdf_path, page_index)
+            for idx, img in enumerate(meaningful_imgs, 1):
+                srcsize = img.get("srcsize", ("?", "?"))
+                size_str = f"{srcsize[0]}×{srcsize[1]} px"
+                if shared_desc:
+                    # All images on the page share the same vision description;
+                    # include a size annotation so each chunk is distinguishable.
+                    content = (
+                        f"{shared_desc}\n"
+                        f"[Image {idx}/{len(meaningful_imgs)} on page "
+                        f"{page_index + 1}, size {size_str}]"
+                    )
+                else:
+                    content = (
+                        f"[Embedded image {idx}/{len(meaningful_imgs)}, "
+                        f"page {page_index + 1}, size {size_str}]"
+                    )
+                results.append(f"\n[IMAGE {idx}]\n{content}\n")
+
+            # Also emit a DIAGRAM block when significant vector drawings exist
+            # alongside the raster images — a page may contain both an embedded
+            # bitmap and a vector-drawn flow chart, and the vector content would
+            # otherwise be silently dropped.
+            if self._has_vector_drawings(plumber_page):
+                desc = self._describe_diagram(pdf_path, page_index)
+                if desc:
+                    results.append(f"\n[DIAGRAM 1]\n{desc}\n")
+        else:
+            # No raster images → the visual content is vector-drawn (shapes,
+            # paths).  Only emit a DIAGRAM block when the vision model is
+            # reachable (an empty block wastes storage and ranking budget).
+            desc = self._describe_diagram(pdf_path, page_index)
+            if desc:
+                results.append(f"\n[DIAGRAM 1]\n{desc}\n")
+
+        return results
+
+    @staticmethod
+    def _is_meaningful_table(table: list) -> bool:
+        """
+        Return True if the table has enough non-empty cells to be worth indexing.
+        pdfplumber sometimes detects diagram or figure borders as table cells,
+        producing nearly-empty tables.  We skip those.
+        """
+        if not table:
+            return False
+        total = sum(len(row) for row in table)
+        if total == 0:
+            return False
+        non_empty = sum(
+            1 for row in table for cell in row
+            if cell and str(cell).strip()
+        )
+        return non_empty / total >= 0.20  # at least 20% of cells must have content
+
+    @staticmethod
+    def _extract_table_structured(plumber_page) -> str:
+        """
+        Extract tables from a pdfplumber page as structured pipe-delimited text,
+        including header detection (first row of each table treated as header).
+        Near-empty tables (likely diagram-border artifacts) are skipped.
+        """
+        if plumber_page is None:
+            return ""
+        parts: List[str] = []
+        tbl_counter = 0
+        try:
+            tables = plumber_page.extract_tables()
+            for table in tables:
+                if not table or not ContentTypeExtractor._is_meaningful_table(table):
+                    continue
+                tbl_counter += 1
+                rows = []
+                for ri, row in enumerate(table):
+                    cells = [str(c).strip() if c else "" for c in row]
+                    row_str = " | ".join(cells)
+                    if ri == 0:
+                        # Mark first row as header
+                        rows.append(row_str)
+                        rows.append("-" * len(row_str))
+                    else:
+                        rows.append(row_str)
+                parts.append(
+                    f"\n[TABLE {tbl_counter}]\n" + "\n".join(rows) + "\n"
+                )
+        except Exception as e:
+            logger.debug(f"Structured table extraction error: {e}")
+        return "".join(parts)
+
+    # ── Main dispatch ────────────────────────────────────────────────────────
+
+    def extract(
+        self,
+        page_type: str,
+        pdf_path: str,
+        page_index: int,
+        tier1_text: str,
+        plumber_page,
+    ) -> str:
+        """
+        Extract content from a page based on its classified type.
+        Returns extracted text suitable for embedding.
+        """
+        t = page_type
+
+        if t == PageType.TOC:
+            return ""   # TOC pages are not indexed
+
+        if t == PageType.COVER:
+            return tier1_text.strip()
+
+        if t == PageType.TEXT:
+            return tier1_text.strip()
+
+        if t == PageType.EQUATION:
+            # Try text extraction first; fall back to vision description
+            if tier1_text.strip():
+                return tier1_text.strip()
+            return self._describe_image(pdf_path, page_index)
+
+        if t == PageType.TABLE:
+            table_text = self._extract_table_structured(plumber_page)
+            if table_text:
+                return table_text
+            # Fall back to text if table extraction fails
+            return tier1_text.strip()
+
+        if t == PageType.IMAGE:
+            # OCR first; if OCR yields nothing, ask vision LLM to describe
+            ocr_text = self._ocr(pdf_path, page_index)
+            if ocr_text.strip():
+                return ocr_text.strip()
+            desc = self._describe_image(pdf_path, page_index)
+            return desc or tier1_text.strip()
+
+        if t == PageType.DIAGRAM:
+            desc = self._describe_diagram(pdf_path, page_index)
+            if desc:
+                # Prepend any extracted text layer (labels, captions)
+                if tier1_text.strip():
+                    return f"{tier1_text.strip()}\n\n[Diagram Description]\n{desc}"
+                return f"[Diagram Description]\n{desc}"
+            # Fall back to OCR if vision is unavailable
+            ocr_text = self._ocr(pdf_path, page_index)
+            return ocr_text or tier1_text.strip()
+
+        if t == PageType.MIXED:
+            parts = []
+            if tier1_text.strip():
+                parts.append(tier1_text.strip())
+            # Tables: each gets its own [TABLE N] marker → separate section
+            table_text = self._extract_table_structured(plumber_page)
+            if table_text:
+                parts.append(table_text)
+            # Images / diagrams: each gets its own [IMAGE N] or [DIAGRAM N]
+            # marker → detect_sections() creates a separate section per visual
+            # element so visual content is never merged into prose chunks.
+            img_parts = self._extract_images_as_text(pdf_path, page_index, plumber_page)
+            parts.extend(img_parts)
+            return "\n\n".join(filter(None, parts))
+
+        # Fallback
+        return tier1_text.strip()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Helper utilities
+# ═══════════════════════════════════════════════════════════════════════════
+
+def file_hash(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(65536), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def already_indexed(client: QdrantClient, collection: str,
+                    file_hash_value: str) -> bool:
+    try:
+        filt = Filter(must=[
+            FieldCondition(key="file_hash", match=MatchValue(value=file_hash_value))
+        ])
+        points, _ = client.scroll(collection_name=collection,
+                                  scroll_filter=filt, limit=1)
+        return len(points) > 0
+    except Exception as e:
+        logger.warning(f"Could not check existing index: {e}")
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MinHash LSH deduplicator
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MinHashDeduplicator:
+    """
+    Global near-duplicate detector using MinHash + LSH.
+
+    Compared to the V2 word-level Jaccard sliding window this implementation:
+    - Works across ALL files in a single run (not per-file)
+    - Runs in O(num_perm) per chunk instead of O(window × len(text))
+    - Approximates Jaccard similarity on character shingles (more robust for
+      short technical texts that share vocabulary but differ in order)
+    """
+
+    def __init__(self,
+                 num_perm: int = MINHASH_NUM_PERM,
+                 bands: int = MINHASH_BANDS,
+                 rows: int = MINHASH_ROWS,
+                 shingle_size: int = MINHASH_SHINGLE_SIZE):
+        self.num_perm = num_perm
+        self.bands = bands
+        self.rows = rows
+        self.shingle_size = shingle_size
+        # LSH buckets: band_index → bucket_key → list[text_id]
+        self._buckets: List[Dict[int, List[int]]] = [
+            defaultdict(list) for _ in range(bands)
+        ]
+        self._signatures: List[np.ndarray] = []
+        self._ids: List[str] = []
+
+    # ── Internal helpers ────────────────────────────────────────────────
+
+    def _shingle(self, text: str) -> Set[str]:
+        """Return set of character n-grams."""
+        t = text.lower()
+        k = self.shingle_size
+        return {t[i:i + k] for i in range(max(0, len(t) - k + 1))} or {t}
+
+    def _minhash_signature(self, shingles: Set[str]) -> np.ndarray:
+        """Compute MinHash signature using mmh3 seeds."""
+        sig = np.full(self.num_perm, np.iinfo(np.int64).max, dtype=np.int64)
+        for shingle in shingles:
+            for seed in range(self.num_perm):
+                h = mmh3.hash(shingle, seed=seed, signed=True)
+                if h < sig[seed]:
+                    sig[seed] = h
+        return sig
+
+    def _lsh_add(self, sig: np.ndarray, idx: int):
+        """Insert signature into LSH buckets."""
+        for b in range(self.bands):
+            start = b * self.rows
+            band_key = hash(sig[start:start + self.rows].tobytes())
+            self._buckets[b][band_key].append(idx)
+
+    def _candidates(self, sig: np.ndarray) -> Set[int]:
+        """Return candidate duplicate indices from LSH buckets."""
+        candidates: Set[int] = set()
+        for b in range(self.bands):
+            start = b * self.rows
+            band_key = hash(sig[start:start + self.rows].tobytes())
+            for idx in self._buckets[b].get(band_key, []):
+                candidates.add(idx)
+        return candidates
+
+    def _estimate_jaccard(self, sig_a: np.ndarray,
+                          sig_b: np.ndarray) -> float:
+        return float(np.mean(sig_a == sig_b))
+
+    # ── Public API ───────────────────────────────────────────────────────
+
+    # Maximum number of LSH candidates to verify before giving up.
+    # Prevents O(n) comparisons when many chunks hash to the same band bucket
+    # (e.g. highly repetitive corpus).  Set to 0 to disable the cap.
+    _MAX_CANDIDATES = 200
+
+    def is_duplicate(self, text: str, threshold: float = 0.80) -> bool:
+        """
+        Return True if text is a near-duplicate of something already seen.
+        If not a duplicate, add text to the index so future calls can detect it.
+        """
+        shingles = self._shingle(text)
+        if not shingles:
+            return False
+
+        sig = self._minhash_signature(shingles)
+        idx = len(self._signatures)
+
+        candidates = self._candidates(sig)
+        if self._MAX_CANDIDATES:
+            candidates = set(list(candidates)[: self._MAX_CANDIDATES])
+
+        for cand_idx in candidates:
+            if self._estimate_jaccard(sig, self._signatures[cand_idx]) >= threshold:
+                return True
+
+        # Not a duplicate — add to index
+        self._signatures.append(sig)
+        self._ids.append(str(idx))
+        self._lsh_add(sig, idx)
+        return False
+
+    def __len__(self) -> int:
+        return len(self._signatures)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Embedding models
+# ═══════════════════════════════════════════════════════════════════════════
+
+class OllamaBGEM3Embedder:
+    """BGE-M3 embedder via Ollama with retry + NaN/Inf patching."""
+
+    def __init__(self, base_url: str = OLLAMA_URL,
+                 model: str = OLLAMA_EMBED_MODEL):
+        self.base_url = base_url
+        self.model = model
+        self.dimension = 1024
+        self._test_connection()
+
+    def _test_connection(self):
+        try:
+            r = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            if r.status_code == 200:
+                logger.info(f"✓ Connected to Ollama at {self.base_url}")
+                available = [m.get("name", "")
+                             for m in r.json().get("models", [])]
+                if self.model not in available:
+                    logger.warning(
+                        f"Model '{self.model}' not found. Available: {available}"
+                    )
+            else:
+                raise ConnectionError("Ollama not responding")
+        except Exception as e:
+            logger.error(f"✗ Cannot connect to Ollama: {e}")
+            raise
+
+    def encode(self, texts: List[str], show_progress_bar: bool = False,
+               **_kwargs) -> List[Optional[List[float]]]:
+        """
+        Encode *texts* sequentially, one HTTP request per text.
+
+        ``batch_size`` is intentionally not a parameter: Ollama's
+        ``/api/embeddings`` endpoint accepts only a single ``prompt`` string
+        per request, so real batching is not possible here.  Any caller that
+        previously passed ``batch_size=N`` can be updated to remove that
+        keyword; the ``**_kwargs`` absorber keeps existing call-sites working
+        without a change.
+        """
+        embeddings: List[Optional[List[float]]] = []
+        skipped = 0
+        patched = 0
+
+        for i, text in enumerate(texts):
+            safe = text if len(text) <= MAX_EMBED_CHARS else text[:MAX_EMBED_CHARS]
+            embedding = None
+            for attempt in range(3):
+                try:
+                    r = requests.post(
+                        f"{self.base_url}/api/embeddings",
+                        json={"model": self.model, "prompt": safe},
+                        timeout=60,
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        if "embedding" in data:
+                            raw = data["embedding"]
+                            if not all(math.isfinite(x) for x in raw):
+                                arr = np.array(raw, dtype=np.float64)
+                                mask = ~np.isfinite(arr)
+                                logger.warning(
+                                    f"Embedding attempt {attempt+1}: "
+                                    f"{mask.sum()} non-finite component(s) → 0.0"
+                                )
+                                arr[mask] = 0.0
+                                raw = arr.tolist()
+                                patched += 1
+                            embedding = raw
+                            break
+                        else:
+                            logger.warning(
+                                f"Attempt {attempt+1}: no 'embedding' key: "
+                                f"{r.text[:100]}"
+                            )
+                    else:
+                        body = r.text
+                        logger.warning(
+                            f"Attempt {attempt+1} HTTP {r.status_code}: "
+                            f"{body[:100]}"
+                        )
+                        if "unsupported value" in body:
+                            break
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt+1} error: {e}")
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+
+            if embedding is None:
+                skipped += 1
+                logger.warning(
+                    f"Failed to embed chunk after 3 attempts "
+                    f"({len(safe)} chars). Skipped so far: {skipped}"
+                )
+            embeddings.append(embedding)
+
+            if show_progress_bar and i % 10 == 0:
+                logger.info(f"Encoded {i + 1}/{len(texts)}")
+
+        if patched:
+            logger.warning(
+                f"⚠  {patched}/{len(texts)} chunks had NaN/Inf components patched."
+            )
+        if skipped:
+            logger.warning(
+                f"⚠  {skipped}/{len(texts)} chunks could not be embedded and "
+                f"will be missing from the index."
+            )
+        return embeddings
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Enhanced PDF Loader (3-tier)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class EnhancedPDFLoader:
+    """
+    Three-tier PDF text extraction:
+    Tier 1 — pypdfium2 (fast, correct word spacing)
+    Tier 2 — pdfplumber (better for some text-layer PDFs; used when Tier 1
+              yields fewer than OCR_TRIGGER_CHARS per page)
+    Tier 3 — pytesseract OCR (scanned PDFs; used when Tiers 1+2 both fail)
+    Tables are extracted with pdfplumber and formatted as pipe-delimited text.
+    """
+
+    _TOC_LINE_RE = re.compile(r'(\.\s*){2,}.*\d+\s*$')
+
+    @staticmethod
+    def _is_toc_page(text: str) -> bool:
+        stripped = text.strip()
+        if len(stripped) < TOC_MIN_CONTENT_CHARS:
+            return False   # too short to be a TOC page
+        if len(stripped) > TOC_MAX_CONTENT_CHARS:
+            return False
+        lines = [l for l in stripped.splitlines() if l.strip()]
+        if len(lines) < TOC_MIN_LINE_COUNT:
+            return False
+        toc = sum(
+            1 for l in lines
+            if EnhancedPDFLoader._TOC_LINE_RE.search(l)
+        )
+        return (toc / len(lines)) >= TOC_LINE_RATIO
+
+    @staticmethod
+    def _extract_tables_as_text(plumber_page) -> str:
+        """
+        Extract tables from a pdfplumber page as pipe-delimited text.
+        Near-empty tables (pdfplumber diagram-border artifacts) are skipped.
+        The first row of each table is treated as a header and followed by a
+        separator line so that detect_sections() can recognize the header row.
+        """
+        parts: List[str] = []
+        tbl_counter = 0
+        try:
+            tables = plumber_page.extract_tables()
+            for table in tables:
+                if not table or not ContentTypeExtractor._is_meaningful_table(table):
+                    continue
+                tbl_counter += 1
+                rows = []
+                for ri, row in enumerate(table):
+                    cells = [str(c).strip() if c else "" for c in row]
+                    row_str = " | ".join(cells)
+                    if ri == 0:
+                        rows.append(row_str)
+                        rows.append("-" * len(row_str))
+                    else:
+                        rows.append(row_str)
+                if rows:
+                    parts.append(
+                        f"\n[Table {tbl_counter}]\n" + "\n".join(rows) + "\n"
+                    )
+        except Exception as e:
+            logger.debug(f"Table extraction error (non-fatal): {e}")
+        return "".join(parts)
+
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        classifier: "OllamaVisionClassifier" = None,
+        content_extractor: "ContentTypeExtractor" = None,
+    ) -> Tuple[str, Dict]:
+        """
+        Load PDF using 3-tier extraction + optional AI page classification.
+
+        When `classifier` is provided, every page is classified (text / table /
+        image / diagram / mixed / cover / toc) and routed to the appropriate
+        extraction strategy via `content_extractor`.
+
+        page_type annotations are embedded in the text as
+          [Page N | type=<type>]
+        and also accumulated into metadata["page_types"] for downstream use.
+        """
+        metadata: Dict = {
+            "num_pages": 0,
+            "has_tables": False,
+            "tables_count": 0,
+            "page_types": {},     # {page_number: PageType}
+        }
+        page_texts: List[str] = []
+        skipped_pages: List[int] = []
+        type_counts: Dict[str, int] = {}
+
+        # ── Tier 1: pypdfium2 ──────────────────────────────────────────
+        pdf = pdfium.PdfDocument(path)
+        tier1_results: Dict[int, str] = {}
+        try:
+            metadata["num_pages"] = len(pdf)
+            for pn in range(len(pdf)):
+                page = pdf[pn]
+                try:
+                    tp = page.get_textpage()
+                    try:
+                        tier1_results[pn] = tp.get_text_bounded()
+                    finally:
+                        tp.close()
+                except Exception as e:
+                    logger.warning(f"pypdfium2 page {pn+1} error: {e}")
+                    tier1_results[pn] = ""
+                finally:
+                    page.close()
+        finally:
+            pdf.close()
+
+        # ── Tier 2 + 3 with pdfplumber (also handles tables) ──────────
+        plumber_pages: Dict[int, object] = {}
+        plumber_doc = None
+        try:
+            plumber_doc = pdfplumber.open(path)
+            for pn, pp in enumerate(plumber_doc.pages):
+                plumber_pages[pn] = pp
+        except Exception as e:
+            logger.warning(f"pdfplumber open error (non-fatal): {e}")
+
+        for pn in range(metadata["num_pages"]):
+            tier1_text = tier1_results.get(pn, "")
+            page_text = tier1_text
+
+            # Tier 2: pdfplumber fallback for sparse pages
+            if len(tier1_text.strip()) < OCR_TRIGGER_CHARS and pn in plumber_pages:
+                try:
+                    t2 = plumber_pages[pn].extract_text() or ""
+                    if len(t2.strip()) > len(tier1_text.strip()):
+                        page_text = t2
+                        logger.debug(f"  Page {pn+1}: used pdfplumber (tier-2)")
+                except Exception as e:
+                    logger.debug(f"  pdfplumber tier-2 page {pn+1}: {e}")
+
+            # ── AI Page Classification (new in V3) ─────────────────────
+            page_type = PageType.TEXT
+            class_result = None
+            if classifier is not None:
+                try:
+                    class_result = classifier.classify(
+                        path, pn, page_text, plumber_pages.get(pn)
+                    )
+                    page_type = class_result.page_type
+                    type_counts[page_type] = type_counts.get(page_type, 0) + 1
+                    metadata["page_types"][pn + 1] = page_type
+                    logger.debug(
+                        f"  Page {pn+1}: type={page_type} "
+                        f"conf={class_result.confidence:.2f} "
+                        f"vision={class_result.used_vision_model}"
+                    )
+                except Exception as e:
+                    logger.debug(f"  Page {pn+1} classification error: {e}")
+
+            # Skip TOC pages
+            if page_type == PageType.TOC or cls._is_toc_page(page_text):
+                skipped_pages.append(pn + 1)
+                continue
+
+            # ── Content-type-aware extraction ──────────────────────────
+            if content_extractor is not None and class_result is not None:
+                try:
+                    extracted = content_extractor.extract(
+                        page_type, path, pn, page_text, plumber_pages.get(pn)
+                    )
+                    if extracted:
+                        page_text = extracted
+                except Exception as e:
+                    logger.debug(f"  Page {pn+1} content extraction error: {e}")
+            else:
+                # Legacy Tier 3: OCR fallback for empty pages
+                if (len(page_text.strip()) < OCR_TRIGGER_CHARS
+                        and ENABLE_OCR_FALLBACK and OCR_AVAILABLE):
+                    try:
+                        images = pdf_to_images(
+                            path, first_page=pn + 1, last_page=pn + 1, dpi=200
+                        )
+                        if images:
+                            ocr_text = pytesseract.image_to_string(images[0])
+                            if len(ocr_text.strip()) > len(page_text.strip()):
+                                page_text = ocr_text
+                                logger.debug(f"  Page {pn+1}: used OCR (tier-3)")
+                    except Exception as e:
+                        logger.debug(f"  OCR tier-3 page {pn+1}: {e}")
+
+            if not page_text.strip():
+                continue
+
+            # Embed page type annotation in the text so downstream chunkers
+            # can carry it forward as metadata.
+            page_tag = f"[Page {pn + 1} | type={page_type}]"
+            page_entry = f"\n{page_tag}\n{page_text}\n"
+
+            # Append structured table text (pdfplumber) only when the
+            # content_extractor has NOT already done table extraction for this
+            # page.  The content_extractor handles TABLE and MIXED pages when
+            # the classifier is active; double-appending would duplicate every
+            # table on those pages.
+            classifier_handled = (
+                content_extractor is not None
+                and class_result is not None
+                and page_type in (PageType.TABLE, PageType.MIXED)
+            )
+            if not classifier_handled and page_type not in (
+                PageType.TABLE, PageType.IMAGE, PageType.DIAGRAM
+            ):
+                if pn in plumber_pages:
+                    table_text = cls._extract_tables_as_text(plumber_pages[pn])
+                    if table_text:
+                        metadata["has_tables"] = True
+                        metadata["tables_count"] += table_text.count("[Table ")
+                        page_entry += table_text
+
+            page_texts.append(page_entry)
+
+        if plumber_doc is not None:
+            try:
+                plumber_doc.close()
+            except Exception:
+                pass
+
+        if skipped_pages:
+            logger.info(
+                f"  ⊘ Skipped {len(skipped_pages)} TOC/boilerplate pages: "
+                f"{skipped_pages[:10]}{'...' if len(skipped_pages) > 10 else ''}"
+            )
+
+        if type_counts:
+            logger.info(
+                f"  📄 Page type breakdown: "
+                + ", ".join(f"{k}={v}" for k, v in sorted(type_counts.items()))
+            )
+
+        return "".join(page_texts), metadata
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Document loader (unified: PDF + DOCX + TXT)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AdvancedDocumentLoader:
+    @staticmethod
+    def extract_metadata(path: str) -> Dict:
+        st = os.stat(path)
+        return {
+            "file_size_bytes": st.st_size,
+            "created_timestamp": st.st_ctime,
+            "modified_timestamp": st.st_mtime,
+            "file_extension": Path(path).suffix.lower(),
+        }
+
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        classifier: "OllamaVisionClassifier" = None,
+        content_extractor: "ContentTypeExtractor" = None,
+    ) -> Tuple[Optional[str], Dict]:
+        try:
+            base_meta = cls.extract_metadata(path)
+            if path.lower().endswith(".pdf"):
+                text, doc_meta = EnhancedPDFLoader.load(
+                    path,
+                    classifier=classifier,
+                    content_extractor=content_extractor,
+                )
+            elif path.lower().endswith(".docx"):
+                text, doc_meta = cls._load_docx(path)
+            elif path.lower().endswith(".txt"):
+                text, doc_meta = cls._load_txt(path)
+            else:
+                return None, {}
+            base_meta.update(doc_meta)
+            return text, base_meta
+        except Exception as e:
+            logger.error(f"Error loading {path}: {e}")
+            return None, {}
+
+    @staticmethod
+    def _load_docx(path: str) -> Tuple[str, Dict]:
+        doc = docx.Document(path)
+        parts: List[str] = []
+        meta: Dict = {"num_paragraphs": 0, "has_tables": False, "tables_count": 0}
+        for para in doc.paragraphs:
+            if para.text.strip():
+                parts.append(para.text)
+                meta["num_paragraphs"] += 1
+        if doc.tables:
+            meta["has_tables"] = True
+            meta["tables_count"] = len(doc.tables)
+            for tbl_idx, table in enumerate(doc.tables, 1):
+                rows = []
+                for row in table.rows:
+                    cells = [c.text.strip() for c in row.cells]
+                    rows.append(" | ".join(cells))
+                if rows:
+                    parts.append(
+                        f"\n[Table {tbl_idx}]\n" + "\n".join(rows) + "\n"
+                    )
+        return "\n".join(parts), meta
+
+    @staticmethod
+    def _load_txt(path: str) -> Tuple[str, Dict]:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            text = f.read()
+        return text, {"num_lines": len(text.splitlines()), "char_count": len(text)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Semantic Chunker
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SemanticChunker:
+    """
+    Splits text at semantic boundaries detected via TF-IDF cosine similarity
+    of sliding sentence windows.  Falls back to pure sentence-boundary chunking
+    when sklearn is unavailable or when there are too few sentences.
+    """
+
+    def __init__(self, chunk_size: int = CHILD_CHUNK_SIZE,
+                 overlap: int = CHILD_CHUNK_OVERLAP):
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    # ── Section detection ────────────────────────────────────────────────────
+
+    _section_patterns = [re.compile(p, re.MULTILINE) for p in SECTION_PATTERNS]
+    # Regex for identifying inline table markers (case-insensitive)
+    _TABLE_TITLE_RE = re.compile(r'^\[Table ', re.IGNORECASE)
+    # Regex for identifying inline image / diagram markers (uppercase, as emitted
+    # by _extract_images_as_text).  No IGNORECASE flag needed since the generator
+    # always uses all-caps [IMAGE N] and [DIAGRAM N].
+    _IMAGE_TITLE_RE  = re.compile(r'^\[IMAGE \d+\]$')
+    _DIAGRAM_TITLE_RE = re.compile(r'^\[DIAGRAM \d+\]$')
+
+    @staticmethod
+    def _section_type_for_title(title: str) -> str:
+        """Return the section_type string for the given section title marker."""
+        if re.match(r'^\[Table ', title, re.IGNORECASE):
+            return "table"
+        if re.match(r'^\[IMAGE \d+\]$', title, re.IGNORECASE):
+            return "image"
+        if re.match(r'^\[DIAGRAM \d+\]$', title, re.IGNORECASE):
+            return "diagram"
+        return "text"
+
+    def detect_sections(self, text: str) -> List[DocumentSection]:
+        sections: List[DocumentSection] = []
+        lines = text.split("\n")
+        cur: Dict = {"title": "Introduction", "content": "", "level": 0}
+        stack = [cur]
+
+        for line in lines:
+            ls = line.strip()
+            if not ls:
+                cur["content"] += "\n"
+                continue
+            is_hdr, level = False, 0
+            for pat in self._section_patterns:
+                if pat.match(ls):
+                    is_hdr = True
+                    if ls.startswith("#"):
+                        level = len(ls) - len(ls.lstrip("#"))
+                    elif self._TABLE_TITLE_RE.match(ls):
+                        # Table/image/diagram markers are leaf-level (level 4)
+                        # so they nest inside numbered sections and preserve
+                        # their parent section hierarchy.
+                        level = 4
+                    elif self._IMAGE_TITLE_RE.match(ls) or self._DIAGRAM_TITLE_RE.match(ls):
+                        level = 4
+                    elif ls.isupper():
+                        level = 1
+                    else:
+                        level = 2
+                    break
+            if is_hdr and len(ls) < 200:
+                if cur["content"].strip():
+                    hier = [s["title"] for s in stack if s["title"]]
+                    stype = self._section_type_for_title(cur["title"])
+                    sections.append(DocumentSection(
+                        title=cur["title"],
+                        content=cur["content"].strip(),
+                        level=cur["level"],
+                        section_type=stype,
+                        section_hierarchy=list(hier),
+                    ))
+                while len(stack) > 1 and stack[-1]["level"] >= level:
+                    stack.pop()
+                cur = {"title": ls.strip("#: ").strip(), "content": "", "level": level}
+                stack.append(cur)
+            else:
+                cur["content"] += line + "\n"
+
+        if cur["content"].strip():
+            hier = [s["title"] for s in stack if s["title"]]
+            stype = self._section_type_for_title(cur["title"])
+            sections.append(DocumentSection(
+                title=cur["title"],
+                content=cur["content"].strip(),
+                level=cur["level"],
+                section_type=stype,
+                section_hierarchy=list(hier),
+            ))
+        return sections or [DocumentSection("Document", text, 0)]
+
+    # ── Semantic boundary detection ──────────────────────────────────────
+
+    def _find_semantic_splits(self, sentences: List[str]) -> List[int]:
+        """
+        Return a list of sentence indices that mark the START of a new semantic
+        segment.  Always includes 0.
+        """
+        splits = [0]
+        n = len(sentences)
+        if n < 2 * SEMANTIC_WINDOW_SIZE + 1 or not SKLEARN_AVAILABLE:
+            return splits
+
+        w = SEMANTIC_WINDOW_SIZE
+        try:
+            vectorizer = TfidfVectorizer(
+                stop_words="english",
+                max_features=5000,
+                min_df=1,
+            )
+            # Build window texts
+            windows = []
+            for i in range(n):
+                start = max(0, i - w)
+                end = min(n, i + w + 1)
+                windows.append(" ".join(sentences[start:end]))
+            vectorizer.fit(windows)
+            vecs = vectorizer.transform(windows).toarray()
+
+            for i in range(1, n):
+                prev = vecs[i - 1].reshape(1, -1)
+                curr = vecs[i].reshape(1, -1)
+                sim = float(sk_cosine(prev, curr)[0][0])
+                if sim < SEMANTIC_SPLIT_THRESHOLD:
+                    splits.append(i)
+        except Exception as e:
+            logger.debug(f"Semantic splitting fallback: {e}")
+
+        return splits
+
+    # ── Core chunking ────────────────────────────────────────────────────
+
+    def _split_long_sentence(self, sentence: str,
+                             max_size: int) -> List[str]:
+        if len(sentence) <= max_size:
+            return [sentence]
+        words = sentence.split()
+        parts: List[str] = []
+        current = ""
+        for w in words:
+            if len(current) + len(w) + 1 > max_size and current:
+                parts.append(current.strip())
+                current = w
+            else:
+                current = current + " " + w if current else w
+        if current.strip():
+            parts.append(current.strip())
+        return parts
+
+    def _sentences_to_chunks(
+        self,
+        sentences: List[str],
+        section_title: str,
+        section_hierarchy: List[str],
+        page_number: Optional[int],
+        chunk_type: str,
+        target_size: int,
+        overlap_chars: int,
+    ) -> List[ChildChunk]:
+        """
+        Pack sentences into chunks respecting semantic boundaries and target size.
+        """
+        if not sentences:
+            return []
+
+        # Optionally find semantic split points
+        if ENABLE_SEMANTIC_CHUNKING:
+            split_points = set(self._find_semantic_splits(sentences))
+        else:
+            split_points = set()
+
+        chunks: List[ChildChunk] = []
+        current_sents: List[str] = []
+        current_len = 0
+        start_char = 0
+        char_pos = 0
+
+        def _flush(sents: List[str], sc: int) -> ChildChunk:
+            text = " ".join(sents).strip()
+            return ChildChunk(
+                text=text,
+                enriched_text=text,   # filled later by ContextualEnricher
+                section_title=section_title,
+                section_hierarchy=list(section_hierarchy),
+                page_number=page_number,
+                chunk_type=chunk_type,
+                page_type=chunk_type if chunk_type in {
+                    PageType.TEXT, PageType.TABLE, PageType.IMAGE,
+                    PageType.DIAGRAM, PageType.EQUATION, PageType.MIXED,
+                    PageType.COVER, PageType.TOC, PageType.UNKNOWN,
+                } else PageType.TEXT,
+                word_count=len(word_tokenize(text)),
+                sentence_count=len(sent_tokenize(text)),
+                start_char=sc,
+                end_char=sc + len(text),
+                parent_id="",         # filled by parent-child builder
+                child_index=0,        # filled by parent-child builder
+            )
+
+        for idx, sent in enumerate(sentences):
+            at_boundary = idx in split_points and current_sents
+
+            if current_len + len(sent) > target_size and current_sents:
+                # Flush current chunk
+                chunks.append(_flush(current_sents, start_char))
+
+                # Keep overlap
+                overlap_sents: List[str] = []
+                overlap_len = 0
+                for s in reversed(current_sents):
+                    if overlap_len + len(s) <= overlap_chars:
+                        overlap_sents.insert(0, s)
+                        overlap_len += len(s)
+                    else:
+                        break
+
+                start_char = char_pos - overlap_len
+                current_sents = overlap_sents
+                current_len = overlap_len
+
+            elif at_boundary and current_len >= MIN_CHUNK_SIZE:
+                chunks.append(_flush(current_sents, start_char))
+                start_char = char_pos
+                current_sents = []
+                current_len = 0
+
+            current_sents.append(sent)
+            char_pos += len(sent) + 1
+            current_len += len(sent) + 1
+
+        if current_sents and " ".join(current_sents).strip():
+            chunks.append(_flush(current_sents, start_char))
+
+        return chunks
+
+    # Minimum number of dash characters required to recognise a separator line
+    # (e.g. "------") that separates a table header row from its data rows.
+    _TABLE_SEPARATOR_MIN_DASHES = 3
+
+    def _chunk_table_rows(
+        self,
+        text: str,
+        section_title: str,
+        section_hierarchy: List[str],
+        page_number: Optional[int],
+        target_size: int,
+    ) -> List[ChildChunk]:
+        """
+        Split a table section into child chunks by grouping complete rows.
+
+        Instead of sentence-tokenising (which arbitrarily breaks pipe-delimited
+        rows at '.' characters), this method treats each non-empty line as one
+        indivisible unit (a table row or header separator).
+
+        The header row + separator are detected and prepended to every chunk
+        after the first so that each child chunk is self-contained.
+        """
+        lines = [l for l in text.splitlines() if l.strip()]
+        if not lines:
+            return []
+
+        # Detect header block: first row + optional dashes-only separator line.
+        header_lines: List[str] = [lines[0]]
+        body_start = 1
+        if len(lines) > 1 and re.match(r'^[-\s|+]+$', lines[1]) and lines[1].count("-") >= self._TABLE_SEPARATOR_MIN_DASHES:
+            header_lines.append(lines[1])
+            body_start = 2
+
+        header_text = "\n".join(header_lines)
+        data_rows = lines[body_start:]
+
+        def _make_chunk(rows: List[str], sc: int) -> ChildChunk:
+            body = "\n".join(rows)
+            chunk_text = f"{header_text}\n{body}" if rows else header_text
+            chunk_text = chunk_text.strip()
+            return ChildChunk(
+                text=chunk_text,
+                enriched_text=chunk_text,   # filled later by ContextualEnricher
+                section_title=section_title,
+                section_hierarchy=list(section_hierarchy),
+                page_number=page_number,
+                chunk_type="table",
+                page_type=PageType.TABLE,
+                word_count=len(chunk_text.split()),
+                # sentence_count reused to store row count for table chunks
+                # (sentence_count is the field name defined by ChildChunk; we
+                # document here that for table sections it counts data rows).
+                sentence_count=len(rows) + len(header_lines),
+                start_char=sc,
+                end_char=sc + len(chunk_text),
+                parent_id="",
+                child_index=0,
+            )
+
+        # If table fits entirely within target_size, return as a single chunk.
+        if len(text.strip()) <= target_size or not data_rows:
+            return [_make_chunk(data_rows, 0)]
+
+        # Otherwise split data rows into chunks of approximately target_size.
+        chunks: List[ChildChunk] = []
+        current_rows: List[str] = []
+        current_len = len(header_text) + 1
+        char_offset = 0
+
+        for row in data_rows:
+            row_len = len(row) + 1   # +1 for newline
+            if current_len + row_len > target_size and current_rows:
+                c = _make_chunk(current_rows, char_offset)
+                chunks.append(c)
+                char_offset += len(c.text) + 1
+                current_rows = []
+                current_len = len(header_text) + 1
+            current_rows.append(row)
+            current_len += row_len
+
+        if current_rows:
+            chunks.append(_make_chunk(current_rows, char_offset))
+
+        return chunks or [_make_chunk(data_rows, 0)]
+
+    def chunk_text(
+        self,
+        text: str,
+        section_title: str = "",
+        section_hierarchy: Optional[List[str]] = None,
+        page_number: Optional[int] = None,
+        chunk_type: str = "text",
+        target_size: int = CHILD_CHUNK_SIZE,
+        overlap: int = CHILD_CHUNK_OVERLAP,
+    ) -> List[ChildChunk]:
+        if not text or len(text.strip()) < MIN_CHUNK_SIZE:
+            return []
+        if section_hierarchy is None:
+            section_hierarchy = [section_title] if section_title else ["Document"]
+
+        # Table sections must not go through sent_tokenize: rows would be split
+        # at '.' characters inside cell values.  Use row-based chunking instead.
+        if chunk_type == "table":
+            return self._chunk_table_rows(
+                text, section_title, section_hierarchy, page_number, target_size
+            )
+
+        raw_sents = sent_tokenize(text)
+        sentences: List[str] = []
+        for s in raw_sents:
+            sentences.extend(self._split_long_sentence(s, target_size))
+
+        return self._sentences_to_chunks(
+            sentences, section_title, section_hierarchy,
+            page_number, chunk_type, target_size, overlap,
+        )
+
+    def chunk_sections(
+        self,
+        sections: List[DocumentSection],
+        target_size: int = CHILD_CHUNK_SIZE,
+        overlap: int = CHILD_CHUNK_OVERLAP,
+    ) -> List[ChildChunk]:
+        result: List[ChildChunk] = []
+        for sec in sections:
+            hier = sec.section_hierarchy or [sec.title]
+            chunks = self.chunk_text(
+                sec.content, sec.title, hier,
+                sec.page_number, sec.section_type, target_size, overlap,
+            )
+            result.extend(chunks)
+        return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Parent-Child Builder
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ParentChildBuilder:
+    """
+    Builds parent chunks and their child chunks from document sections.
+
+    Workflow:
+    1. Chunk the document at PARENT_CHUNK_SIZE → ParentChunk list
+    2. For each parent, further chunk at CHILD_CHUNK_SIZE → ChildChunk list
+    3. Set child.parent_id = parent.parent_id
+    """
+
+    def __init__(self, chunker: SemanticChunker):
+        self.chunker = chunker
+
+    def build(
+        self,
+        sections: List[DocumentSection],
+        file_hash_value: str = "",
+    ) -> Tuple[List[ParentChunk], List[ChildChunk]]:
+        parents: List[ParentChunk] = []
+        children: List[ChildChunk] = []
+
+        # Build large parent chunks first
+        raw_parents: List[ChildChunk] = self.chunker.chunk_sections(
+            sections,
+            target_size=PARENT_CHUNK_SIZE,
+            overlap=PARENT_CHUNK_OVERLAP,
+        )
+
+        for raw_parent in raw_parents:
+            pid = str(uuid.uuid5(
+                uuid.NAMESPACE_DNS,
+                # Include file_hash to prevent collisions across documents
+                # that happen to share the same 64-char prefix at the same offset.
+                f"{file_hash_value}_{raw_parent.start_char}_{raw_parent.text[:64]}"
+            ))
+            parent = ParentChunk(
+                text=raw_parent.text,
+                section_title=raw_parent.section_title,
+                section_hierarchy=list(raw_parent.section_hierarchy),
+                page_number=raw_parent.page_number,
+                chunk_type=raw_parent.chunk_type,
+                page_type=getattr(raw_parent, "page_type", PageType.TEXT),
+                word_count=raw_parent.word_count,
+                start_char=raw_parent.start_char,
+                end_char=raw_parent.end_char,
+                parent_id=pid,
+            )
+            parents.append(parent)
+
+            # Now chunk the parent content into children
+            child_raw = self.chunker.chunk_text(
+                raw_parent.text,
+                raw_parent.section_title,
+                raw_parent.section_hierarchy,
+                raw_parent.page_number,
+                raw_parent.chunk_type,
+                CHILD_CHUNK_SIZE,
+                CHILD_CHUNK_OVERLAP,
+            )
+
+            for ci, child in enumerate(child_raw):
+                child.parent_id = pid
+                child.child_index = ci
+                children.append(child)
+
+        return parents, children
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Contextual Enricher (Anthropic research)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ContextualEnricher:
+    """
+    Prepends a short situational context to each child chunk before embedding.
+
+    Two modes:
+    - "template": Fast, no extra LLM call.  Builds context from filename,
+      section hierarchy, and a snippet of the previous and next chunk.
+    - "llm": Calls Ollama generation model to produce a precise description.
+      Falls back to template mode if the LLM call fails.
+
+    The original chunk text (child.text) is preserved unchanged; only
+    child.enriched_text is modified.  This means the stored payload always
+    holds the true source text while the embedding captures rich context.
+    """
+
+    _TEMPLATE = (
+        "Document: {filename}\n"
+        "Section: {section}\n"
+        "Context: {context}\n\n"
+        "{chunk_text}"
+    )
+
+    def __init__(self,
+                 mode: str = CONTEXT_MODE,
+                 ollama_url: str = OLLAMA_URL,
+                 llm_model: str = CONTEXT_LLM_MODEL or ""):
+        self.mode = mode if ENABLE_CONTEXT_ENRICHMENT else "none"
+        self.ollama_url = ollama_url
+        self.llm_model = llm_model
+
+    def enrich(
+        self,
+        children: List[ChildChunk],
+        filename: str,
+    ) -> None:
+        """Enrich all children in-place (modifies child.enriched_text)."""
+        if self.mode == "none":
+            return
+
+        n = len(children)
+        for i, child in enumerate(children):
+            section = " > ".join(child.section_hierarchy) if child.section_hierarchy else ""
+
+            # Build neighbouring context snippet
+            prev_snippet = ""
+            next_snippet = ""
+            if i > 0:
+                prev_sents = sent_tokenize(children[i - 1].text)
+                prev_snippet = " ".join(
+                    prev_sents[-CONTEXT_NEIGHBOUR_SENTS:]
+                )
+            if i < n - 1:
+                next_sents = sent_tokenize(children[i + 1].text)
+                next_snippet = " ".join(
+                    next_sents[:CONTEXT_NEIGHBOUR_SENTS]
+                )
+
+            context_parts = []
+            if prev_snippet:
+                context_parts.append(f"...{prev_snippet}")
+            if next_snippet:
+                context_parts.append(f"{next_snippet}...")
+            context_hint = " | ".join(context_parts) if context_parts else "start of section"
+
+            if self.mode == "llm" and self.llm_model:
+                enriched = self._llm_context(child.text, filename, section, context_hint)
+            else:
+                enriched = None
+
+            if enriched is None:
+                # Template fallback
+                enriched = self._TEMPLATE.format(
+                    filename=filename,
+                    section=section or "—",
+                    context=context_hint,
+                    chunk_text=child.text,
+                )
+
+            child.enriched_text = enriched
+
+    def _llm_context(
+        self,
+        chunk_text: str,
+        filename: str,
+        section: str,
+        context_hint: str,
+    ) -> Optional[str]:
+        """
+        Ask Ollama to write a short situational context for the chunk, then
+        prepend it to the chunk text (Anthropic recipe).
+        """
+        prompt = (
+            f"Document: {filename}\n"
+            f"Section: {section or 'unknown'}\n"
+            f"Neighbouring text snippet: {context_hint}\n\n"
+            f"Please write 1–3 short sentences that explain what the following "
+            f"passage is about and how it relates to the document above. "
+            f"Do NOT repeat the passage itself.\n\n"
+            f"Passage:\n{chunk_text[:1500]}\n\n"
+            f"Context description:"
+        )
+        try:
+            r = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.llm_model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 120},
+                },
+                timeout=30,
+            )
+            if r.status_code == 200:
+                context_desc = r.json().get("response", "").strip()
+                if context_desc:
+                    return f"{context_desc}\n\n{chunk_text}"
+        except Exception as e:
+            logger.debug(f"LLM context generation error: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BM25 Index (identical to V2, placed here for self-containment)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class BM25Index:
+    def __init__(self):
+        self.bm25 = None
+        self.tokenized_corpus: List[List[str]] = []
+        self.vocabulary: Dict[str, int] = {}
+        self.token_idf: Dict[str, float] = {}
+
+    def fit(self, texts: List[str]):
+        self.tokenized_corpus = [self._tokenize(t) for t in texts]
+        self.bm25 = BM25Okapi(self.tokenized_corpus)
+        all_tokens = sorted({t for doc in self.tokenized_corpus for t in doc})
+        self.vocabulary = {t: i for i, t in enumerate(all_tokens)}
+        N = len(self.tokenized_corpus)
+        # Build document-frequency counter in O(total_tokens) instead of O(vocab × docs)
+        df_counter: Dict[str, int] = defaultdict(int)
+        for doc in self.tokenized_corpus:
+            for token in set(doc):
+                df_counter[token] += 1
+        for token in self.vocabulary:
+            df = df_counter.get(token, 0)
+            self.token_idf[token] = np.log((N - df + 0.5) / (df + 0.5) + 1)
+        logger.info(f"  ✓ BM25 vocabulary: {len(self.vocabulary)} tokens")
+
+    def _tokenize(self, text: str) -> List[str]:
+        tokens = [t.lower() for t in word_tokenize(text) if t.isalnum()]
+        # Remove stop words for better BM25 quality.
+        # If the entire token list consists of stop words (rare edge case),
+        # return an empty list rather than keeping noisy stop-word tokens.
+        filtered = [t for t in tokens if t not in _STOP_WORDS]
+        return filtered
+
+    def get_sparse_vector(self, text: str) -> SparseVector:
         tokens = self._tokenize(text)
         total = len(tokens)
         counts: Dict[str, int] = {}
@@ -333,465 +2330,501 @@ class BM25QueryEncoder:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Hybrid search + RRF
+# Collection bootstrap helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _rrf_score(rank: int, k: int = RRF_K) -> float:
-    return 1.0 / (k + rank + 1)
-
-
-def hybrid_search_children(
+def _ensure_collection(
     client: QdrantClient,
-    query_vec: List[float],
-    sparse_vec: SparseVector,
-    collection: str = CHILDREN_COL,
-    dense_top_k: int = CHILD_DENSE_TOP_K,
-    sparse_top_k: int = CHILD_SPARSE_TOP_K,
-    hybrid_top_k: int = CHILD_HYBRID_TOP_K,
-    metadata_filter: Optional[Filter] = None,
-) -> List[ChildResult]:
-    """
-    Dense + sparse search on the children collection, fused with RRF.
-    """
-
-    # Dense search
-    try:
-        dense_hits = client.query_points(
-            collection_name=collection,
-            query=query_vec,
-            using="dense",
-            query_filter=metadata_filter,
-            limit=dense_top_k,
-            with_payload=True,
-        ).points
-    except ApiException as e:
-        logger.warning(f"Dense search failed: {e}")
-        dense_hits = []
-
-    # Sparse search — skipped when the BM25 encoder produced no tokens
-    sparse_hits: List[ScoredPoint] = []
-    if sparse_vec.indices:
+    name: str,
+    embedding_dim: int,
+    with_sparse: bool = True,
+) -> None:
+    existing = {c.name for c in client.get_collections().collections}
+    if name not in existing:
+        vectors_cfg: Dict = {
+            "dense": VectorParams(size=embedding_dim, distance=Distance.COSINE)
+        }
+        sparse_cfg = (
+            {"bm25": SparseVectorParams(index=SparseIndexParams(on_disk=False))}
+            if with_sparse
+            else {}
+        )
+        client.create_collection(
+            collection_name=name,
+            vectors_config=vectors_cfg,
+            sparse_vectors_config=sparse_cfg,
+        )
+        logger.info(f"✓ Created collection: {name}")
+    else:
+        # Dimension-mismatch guard
+        col_info = client.get_collection(name)
         try:
-            sparse_hits = client.query_points(
-                collection_name=collection,
-                query=sparse_vec,
-                using="bm25",
-                query_filter=metadata_filter,
-                limit=sparse_top_k,
-                with_payload=True,
-            ).points
-        except ApiException as e:
-            logger.warning(f"Sparse search failed: {e}")
-
-    # RRF fusion
-    scores: Dict[str, float] = defaultdict(float)
-    hit_payloads: Dict[str, Any] = {}
-    hit_dense: Dict[str, float] = {}
-    hit_sparse: Dict[str, float] = {}
-
-    for rank, hit in enumerate(dense_hits):
-        pid = str(hit.id)
-        scores[pid]  += DENSE_WEIGHT  * _rrf_score(rank)
-        hit_dense[pid] = hit.score
-        hit_payloads[pid] = hit.payload
-
-    for rank, hit in enumerate(sparse_hits):
-        pid = str(hit.id)
-        scores[pid]  += SPARSE_WEIGHT * _rrf_score(rank)
-        hit_sparse[pid] = hit.score
-        if pid not in hit_payloads:
-            hit_payloads[pid] = hit.payload
-
-    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:hybrid_top_k]
-
-    results: List[ChildResult] = []
-    for cid, score in ranked:
-        pl = hit_payloads.get(cid, {})
-        results.append(ChildResult(
-            child_id=cid,
-            parent_id=pl.get("parent_id", ""),
-            content=pl.get("content", ""),
-            filename=pl.get("filename", ""),
-            section_title=pl.get("section_title", ""),
-            section_hierarchy=pl.get("section_hierarchy", []),
-            page_number=pl.get("page_number"),
-            page_type=pl.get("page_type", PageType.TEXT),
-            dense_score=hit_dense.get(cid, 0.0),
-            sparse_score=hit_sparse.get(cid, 0.0),
-            hybrid_score=score,
-            metadata=pl,
-        ))
-    return results
+            vcfg = col_info.config.params.vectors
+            dense_cfg = vcfg.get("dense") if hasattr(vcfg, "get") else None
+            if dense_cfg and dense_cfg.size != embedding_dim:
+                raise RuntimeError(
+                    f"Dimension mismatch in '{name}': "
+                    f"collection={dense_cfg.size}, embedder={embedding_dim}"
+                )
+        except AttributeError:
+            pass
+        logger.info(f"✓ Collection exists: {name}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Parent expansion
+# Main pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
-def expand_to_parents(
-    client: QdrantClient,
-    child_results: List[ChildResult],
-    parents_collection: str = PARENTS_COL,
-) -> List[ParentResult]:
-    """
-    Group child results by parent_id, fetch the parent documents from Qdrant,
-    and return one ParentResult per unique parent (keyed by highest child score).
-    """
-    # Group by parent
-    parent_groups: Dict[str, List[ChildResult]] = defaultdict(list)
-    for cr in child_results:
-        if cr.parent_id:
-            parent_groups[cr.parent_id].append(cr)
-        else:
-            # No parent_id in payload → fall back to using the child text itself
-            parent_groups[cr.child_id].append(cr)
+def _jsonl_safe(v):
+    """Return *v* as-is if it is a JSON-native type, else coerce to str."""
+    return v if isinstance(v, (str, int, float, bool, list, dict)) or v is None else str(v)
 
-    if not parent_groups:
-        return []
 
-    # Fetch parent payloads in one batch
-    parent_ids = list(parent_groups.keys())
-    try:
-        parent_points = client.retrieve(
-            collection_name=parents_collection,
-            ids=parent_ids,
-            with_payload=True,
+def main():
+    parser = argparse.ArgumentParser(
+        description="Advanced RAG Ingestion System V3"
+    )
+    parser.add_argument("--data-dir",       default=DATA_DIR)
+    parser.add_argument("--collection",     default=COLLECTION)
+    parser.add_argument("--qdrant-url",     default=QDRANT_URL)
+    parser.add_argument("--ollama-url",     default=OLLAMA_URL)
+    parser.add_argument("--ollama-model",   default=OLLAMA_MODEL)
+    parser.add_argument("--context-mode",      default=CONTEXT_MODE,
+                        choices=["template", "llm", "none"])
+    parser.add_argument("--context-llm",       default=CONTEXT_LLM_MODEL or "")
+    parser.add_argument("--bm25-output",       default=BM25_OUTPUT)
+    parser.add_argument("--vision-model",      default=OLLAMA_VISION_MODEL,
+                        help="Ollama vision model for page classification")
+    parser.add_argument("--vision-desc-model", default=OLLAMA_VISION_DESC_MODEL,
+                        help="Ollama vision model for image/diagram description")
+    parser.add_argument("--ocr-engine",        default=OCR_ENGINE,
+                        choices=["pytesseract", "ollama_vision"],
+                        help="OCR engine for image-only pages")
+    parser.add_argument("--no-classification", action="store_true",
+                        help="Disable page classification (use legacy extraction)")
+    args = parser.parse_args()
+
+    data_dir       = args.data_dir
+    base_collection = args.collection
+    children_col   = f"{base_collection}_children"
+    parents_col    = f"{base_collection}_parents"
+    qdrant_url     = args.qdrant_url
+    bm25_output    = args.bm25_output
+
+    logger.info("=" * 80)
+    logger.info("ADVANCED RAG INGESTION SYSTEM V3")
+    logger.info(f"  Parent collection : {parents_col}")
+    logger.info(f"  Children collection: {children_col}")
+    logger.info(f"  Semantic chunking : {ENABLE_SEMANTIC_CHUNKING}")
+    logger.info(f"  Context enrichment: {ENABLE_CONTEXT_ENRICHMENT} ({args.context_mode})")
+    logger.info(f"  MinHash dedup     : {ENABLE_MINHASH_DEDUP}")
+    logger.info(f"  OCR fallback      : {ENABLE_OCR_FALLBACK} "
+                f"({'available' if OCR_AVAILABLE else 'NOT installed'})")
+    use_classification = ENABLE_PAGE_CLASSIFICATION and not args.no_classification
+    logger.info(f"  Page classification: {use_classification} "
+                f"(vision model: {args.vision_model})")
+    logger.info(f"  Diagram model     : {args.vision_desc_model}")
+    logger.info(f"  OCR engine        : {args.ocr_engine}")
+    logger.info("=" * 80)
+
+    # ── Qdrant client ────────────────────────────────────────────────────
+    client = QdrantClient(url=qdrant_url)
+
+    # ── Embedding model ──────────────────────────────────────────────────
+    if USE_OLLAMA_BGE_M3:
+        try:
+            logger.info(f"Using Ollama BGE-M3 at {args.ollama_url}")
+            embedder = OllamaBGEM3Embedder(args.ollama_url, args.ollama_model)
+            embedding_dim = embedder.dimension
+        except Exception:
+            logger.warning(f"Ollama unavailable → fallback to {FALLBACK_MODEL}")
+            embedder = SentenceTransformer(FALLBACK_MODEL)
+            embedding_dim = 384
+    else:
+        embedder = SentenceTransformer(FALLBACK_MODEL)
+        embedding_dim = 384
+    logger.info(f"Embedding dimension: {embedding_dim}")
+
+    # ── Collections ──────────────────────────────────────────────────────
+    _ensure_collection(client, children_col, embedding_dim, with_sparse=True)
+    _ensure_collection(client, parents_col,  embedding_dim, with_sparse=False)
+
+    # ── Pipeline components ──────────────────────────────────────────────
+    chunker     = SemanticChunker(CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP)
+    pc_builder  = ParentChildBuilder(chunker)
+    enricher    = ContextualEnricher(
+        mode=args.context_mode,
+        ollama_url=args.ollama_url,
+        llm_model=args.context_llm,
+    )
+    deduplicator = MinHashDeduplicator() if ENABLE_MINHASH_DEDUP else None
+    bm25_index   = BM25Index()
+
+    # ── Page classifier + content-type extractor (optional) ──────────────
+    use_classification = ENABLE_PAGE_CLASSIFICATION and not args.no_classification
+    page_classifier: Optional[OllamaVisionClassifier] = None
+    ct_extractor:    Optional[ContentTypeExtractor]   = None
+    if use_classification:
+        page_classifier = OllamaVisionClassifier(
+            ollama_url=args.ollama_url,
+            classify_model=args.vision_model,
+            describe_model=args.vision_desc_model,
         )
-        fetched: Dict[str, Any] = {str(p.id): p.payload for p in parent_points}
-    except Exception as e:
-        logger.warning(f"Parent fetch error (falling back to child text): {e}")
-        fetched = {}
-
-    results: List[ParentResult] = []
-    for pid, children in parent_groups.items():
-        best_child = max(children, key=lambda c: c.hybrid_score)
-        payload = fetched.get(pid, {})
-
-        # Use parent text if available; else fall back to the best child text
-        content = payload.get("content") or best_child.content
-
-        results.append(ParentResult(
-            parent_id=pid,
-            content=content,
-            filename=payload.get("filename", best_child.filename),
-            section_title=payload.get("section_title", best_child.section_title),
-            section_hierarchy=payload.get("section_hierarchy",
-                                          best_child.section_hierarchy),
-            page_number=payload.get("page_number", best_child.page_number),
-            page_type=payload.get("page_type", best_child.page_type),
-            child_score=best_child.hybrid_score,
-            matched_children=len(children),
-            metadata=payload or best_child.metadata,
-        ))
-
-    # Sort by best child hybrid score
-    results.sort(key=lambda r: r.child_score, reverse=True)
-    return results
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Main retriever class
-# ═══════════════════════════════════════════════════════════════════════════
-
-class ParentChildRetriever:
-    """
-    High-level retriever using the V3 parent-child index.
-
-    Usage
-    -----
-    retriever = ParentChildRetriever()
-    results = retriever.retrieve("What is the safety requirement for X?")
-    for r in results:
-        print(r.filename, r.content[:200])
-    """
-
-    def __init__(
-        self,
-        qdrant_url: str = QDRANT_URL,
-        children_col: str = CHILDREN_COL,
-        parents_col: str = PARENTS_COL,
-        ollama_url: str = OLLAMA_URL,
-        ollama_model: str = OLLAMA_MODEL,
-        # Reranker model can differ from embedding model.
-        # Change OLLAMA_RERANKER_MODEL in CONFIG to affect all instances.
-        reranker_model: str = "",
-        bm25_index_path: str = BM25_INDEX_PATH,
-    ):
-        self.client       = QdrantClient(url=qdrant_url)
-        self.children_col = children_col
-        self.parents_col  = parents_col
-        self.embedder     = OllamaBGEM3(
-            ollama_url, ollama_model,
-            reranker_model=reranker_model or OLLAMA_RERANKER_MODEL,
+        ct_extractor = ContentTypeExtractor(
+            ollama_url=args.ollama_url,
+            classify_model=args.vision_model,
+            describe_model=args.vision_desc_model,
+            ocr_engine=args.ocr_engine,
         )
-        self.bm25         = BM25QueryEncoder(bm25_index_path)
 
-    def retrieve(
-        self,
-        query: str,
-        top_k: int = FINAL_TOP_K,
-        metadata_filter: Optional[Filter] = None,
-        rerank: bool = USE_OLLAMA_RERANKER,
-    ) -> List[ParentResult]:
-        """
-        Execute the full parent-child retrieval pipeline and return ranked
-        ParentResult objects whose `.content` is suitable for LLM context.
-        """
-        # 1. Embed query
-        query_vec = self.embedder.embed_query(query)
-        if query_vec is None:
-            logger.error("Query embedding failed; cannot retrieve.")
-            return []
+    # ── Counters ─────────────────────────────────────────────────────────
+    total_files    = 0
+    total_children = 0
+    total_parents  = 0
 
-        sparse_vec = self.bm25.encode(query)
+    # ── Temporary JSONL for two-pass ingestion ────────────────────────────
+    # Pass 1 serialises every chunk (metadata + text, NO embeddings) to this
+    # file so that memory only ever holds one file's worth of chunks at a time.
+    # Pass 2 streams it back, embeds one chunk per line, and upserts immediately.
+    # The file is placed next to the BM25 output so both land in the same
+    # directory (which is guaranteed to be writable) and are easy to locate
+    # together if manual inspection is needed.
+    jsonl_path = Path(bm25_output).with_suffix(".chunks.jsonl")
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 2. Hybrid child search
-        children = hybrid_search_children(
-            client=self.client,
-            query_vec=query_vec,
-            sparse_vec=sparse_vec,
-            collection=self.children_col,
-            metadata_filter=metadata_filter,
-        )
-        logger.info(f"  Child hits: {len(children)}")
+    # Raw child texts are still collected in a list so BM25 can be fitted
+    # on the full corpus in one shot; these are plain strings (no embeddings)
+    # so their memory footprint is orders of magnitude smaller than float lists.
+    all_child_raw_texts: List[str] = []
 
-        # 3. Expand to parents
-        parents = expand_to_parents(
-            client=self.client,
-            child_results=children,
-            parents_collection=self.parents_col,
-        )
-        logger.info(f"  Unique parents after expansion: {len(parents)}")
+    # ════════════════════════════════════════════════════════════════════
+    # PASS 1 — load, chunk, deduplicate, serialise to JSONL
+    # ════════════════════════════════════════════════════════════════════
+    logger.info("\nPass 1: Loading and chunking documents → JSONL...")
 
-        # 4. Re-rank using BGE-M3 cosine similarity on parent texts
-        if rerank and self.embedder.available and parents:
-            parent_texts = [p.content[:MAX_RERANK_CHARS] for p in parents]
-            rr_scores    = self.embedder.rerank(query, parent_texts)
-            for pr, rr in zip(parents, rr_scores):
-                pr.rerank_score = rr
-                # Blend child hybrid score and rerank score
-                pr.final_score = 0.5 * pr.child_score + 0.5 * rr
-            parents.sort(key=lambda r: r.final_score, reverse=True)
-        else:
-            for pr in parents:
-                pr.final_score = pr.child_score
+    with open(jsonl_path, "w", encoding="utf-8") as jsonl_f:
 
-        return parents[:top_k]
+        for root, _, files in os.walk(data_dir):
+            for file in files:
+                if not file.lower().endswith((".pdf", ".docx", ".txt")):
+                    continue
 
-    def filter_by_content_type(
-        self,
-        results: List[ParentResult],
-        page_types: List[str],
-    ) -> List[ParentResult]:
-        """
-        Filter ParentResult list to include only results of the given page types.
+                path = os.path.join(root, file)
+                logger.info(f"\n→ Processing: {file}")
 
-        Example — retrieve only table and diagram content:
-            filtered = retriever.filter_by_content_type(
-                results, [PageType.TABLE, PageType.DIAGRAM]
-            )
-        """
-        allowed = set(page_types)
-        return [r for r in results if r.page_type in allowed]
+                try:
+                    h = file_hash(path)
 
-    def format_context(
-        self,
-        results: List[ParentResult],
-        max_chars_per_result: int = MAX_RERANK_CHARS,
-        include_type_label: bool = True,
-    ) -> str:
-        """
-        Format retrieved parent chunks as a numbered context block for the LLM.
+                    # Skip already-indexed files (check children collection)
+                    if already_indexed(client, children_col, h):
+                        logger.info("  ⊘ Already indexed — skipping")
+                        continue
 
-        When `include_type_label=True` (default), the page type is shown in the
-        header so the LLM knows whether it is reading prose, a table, or a
-        diagram description.
-        """
-        parts: List[str] = []
-        for i, r in enumerate(results, 1):
-            section = " > ".join(r.section_hierarchy) if r.section_hierarchy else ""
-            type_label = f"[{r.page_type}]" if include_type_label else ""
-            header = f"[{i}] {r.filename} {type_label}".strip()
-            if section:
-                header += f" — {section}"
-            if r.page_number:
-                header += f" (p.{r.page_number})"
-            text = r.content[:max_chars_per_result]
-            parts.append(f"{header}\n{text}")
-        return "\n\n---\n\n".join(parts)
+                    # Load document
+                    text, doc_metadata = AdvancedDocumentLoader.load(
+                        path,
+                        classifier=page_classifier,
+                        content_extractor=ct_extractor,
+                    )
+                    if not text or len(text.strip()) < MIN_CHUNK_SIZE:
+                        logger.info("  ⊘ Empty or too short after extraction")
+                        continue
 
+                    # Detect sections
+                    sections = chunker.detect_sections(text) if ENABLE_SECTION_AWARE else [
+                        DocumentSection("Document", text, 0)
+                    ]
+                    logger.info(f"  ✓ {len(sections)} sections detected")
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Quick CLI smoke-test
-# ═══════════════════════════════════════════════════════════════════════════
+                    # Build parent-child hierarchy
+                    parents, children = pc_builder.build(sections, file_hash_value=h)
+                    logger.info(
+                        f"  ✓ {len(parents)} parent chunks → {len(children)} child chunks"
+                    )
 
-def _parent_result_to_dict(r: "ParentResult") -> Dict[str, Any]:
-    """Serialize a ParentResult dataclass to a JSON-safe dictionary."""
-    return {
-        "parent_id": r.parent_id,
-        "filename": r.filename,
-        "section_title": r.section_title,
-        "section_hierarchy": r.section_hierarchy,
-        "page_number": r.page_number,
-        "page_type": r.page_type,
-        "child_score": round(float(r.child_score), 6),
-        "rerank_score": round(float(r.rerank_score), 6),
-        "final_score": round(float(r.final_score), 6),
-        "matched_children": r.matched_children,
-        "content": r.content,
+                    if not children:
+                        continue
+
+                    # Contextual enrichment
+                    if ENABLE_CONTEXT_ENRICHMENT:
+                        enricher.enrich(children, file)
+                        logger.info(
+                            f"  ✓ Context enrichment applied ({args.context_mode} mode)"
+                        )
+
+                    # MinHash deduplication (global, cross-file)
+                    accepted_children: List[ChildChunk] = []
+                    accepted_parents: Set[str] = set()
+                    dedup_removed = 0
+
+                    for child in children:
+                        if deduplicator is not None:
+                            if deduplicator.is_duplicate(child.text):
+                                dedup_removed += 1
+                                continue
+                        accepted_children.append(child)
+                        accepted_parents.add(child.parent_id)
+
+                    if dedup_removed:
+                        logger.info(
+                            f"  ⊘ Removed {dedup_removed} near-duplicate child chunks"
+                        )
+
+                    # Filter parents: only keep those that have accepted children
+                    accepted_parent_objs = [
+                        p for p in parents if p.parent_id in accepted_parents
+                    ]
+
+                    logger.info(
+                        f"  ✓ Accepted: {len(accepted_children)} child chunks, "
+                        f"{len(accepted_parent_objs)} parent chunks"
+                    )
+
+                    if not accepted_children:
+                        continue
+
+                    folder   = os.path.relpath(root, data_dir)
+                    file_type = Path(file).suffix.lower()
+
+                    # Serialise child records to JSONL (no embeddings yet)
+                    for i, child in enumerate(accepted_children):
+                        cid = str(uuid.uuid5(
+                            uuid.NAMESPACE_DNS, f"{h}_child_{i}"
+                        ))
+                        payload = {
+                            "content":            child.text,
+                            "enriched_content":   child.enriched_text,
+                            "parent_id":          child.parent_id,
+                            "child_index":        child.child_index,
+                            "source_path":        path,
+                            "filename":           file,
+                            "folder":             folder,
+                            "file_type":          file_type,
+                            "file_hash":          h,
+                            "chunk_type":         child.chunk_type,
+                            "page_type":          child.page_type,
+                            "section_title":      child.section_title,
+                            "section_hierarchy":  child.section_hierarchy,
+                            "word_count":         child.word_count,
+                            "sentence_count":     child.sentence_count,
+                            "start_char":         child.start_char,
+                            "end_char":           child.end_char,
+                            **{k: _jsonl_safe(v) for k, v in doc_metadata.items()},
+                        }
+                        record = {
+                            "chunk_type": "child",
+                            "id":         cid,
+                            "payload":    payload,
+                            "raw_text":   child.text,
+                            "embed_text": child.enriched_text,
+                        }
+                        jsonl_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        all_child_raw_texts.append(child.text)
+                        total_children += 1
+
+                    # Serialise parent records to JSONL
+                    for parent in accepted_parent_objs:
+                        payload = {
+                            "content":           parent.text,
+                            "source_path":       path,
+                            "filename":          file,
+                            "folder":            folder,
+                            "file_type":         file_type,
+                            "file_hash":         h,
+                            "chunk_type":        parent.chunk_type,
+                            "page_type":         parent.page_type,
+                            "section_title":     parent.section_title,
+                            "section_hierarchy": parent.section_hierarchy,
+                            "word_count":        parent.word_count,
+                            "start_char":        parent.start_char,
+                            "end_char":          parent.end_char,
+                            **{k: _jsonl_safe(v) for k, v in doc_metadata.items()},
+                        }
+                        record = {
+                            "chunk_type": "parent",
+                            "id":         parent.parent_id,
+                            "payload":    payload,
+                            "embed_text": parent.text,
+                        }
+                        jsonl_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        total_parents += 1
+
+                    total_files += 1
+
+                except Exception as e:
+                    logger.error(f"  ✗ Error processing {file}: {e}", exc_info=True)
+                    continue
+
+    if total_children == 0:
+        logger.warning("No documents to index!")
+        jsonl_path.unlink(missing_ok=True)
+        return
+
+    # ════════════════════════════════════════════════════════════════════
+    # BM25 fit (between passes — uses only lightweight text strings)
+    # ════════════════════════════════════════════════════════════════════
+    logger.info(
+        f"\nBM25 fit: {len(all_child_raw_texts)} child chunks..."
+    )
+    bm25_index.fit(all_child_raw_texts)
+    del all_child_raw_texts          # release memory before embedding pass
+
+    bm25_data = {
+        "vocabulary": bm25_index.vocabulary,
+        "token_idf": {k: float(v) for k, v in bm25_index.token_idf.items()},
     }
+    Path(bm25_output).parent.mkdir(parents=True, exist_ok=True)
+    with open(bm25_output, "w") as f:
+        json.dump(bm25_data, f)
+    logger.info(f"  ✓ Saved BM25 index → {bm25_output}")
 
+    # ════════════════════════════════════════════════════════════════════
+    # PASS 2 — stream JSONL, embed one chunk at a time, upsert immediately
+    # Peak RAM ≈ one embedding vector (no accumulation of all vectors)
+    # ════════════════════════════════════════════════════════════════════
+    logger.info(
+        f"\nPass 2: Embedding {total_children} child + {total_parents} parent "
+        f"chunks and upserting to Qdrant..."
+    )
 
-def _save_results_json(output: Dict[str, Any], path: str) -> None:
-    """Write *output* to *path* as indented JSON, creating parent dirs if needed."""
-    parent_dir = os.path.dirname(os.path.abspath(path))
-    os.makedirs(parent_dir, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(output, fh, indent=2, ensure_ascii=False)
-    logger.info(f"Results saved to: {path}")
+    UPSERT_BATCH = 100          # how many PointStructs to batch per upsert call
+    child_batch:  List[PointStruct] = []
+    parent_batch: List[PointStruct] = []
+    child_batches_sent  = 0
+    parent_batches_sent = 0
+    embed_skipped       = 0
+    pass2_ok = False
+
+    try:
+        with open(jsonl_path, encoding="utf-8") as jsonl_f:
+            for line in jsonl_f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    logger.warning(f"Corrupt JSONL line — skipping: {exc}")
+                    continue
+
+                embed_text = record.get("embed_text", "")
+                if not embed_text:
+                    embed_skipped += 1
+                    continue
+
+                # Embed (one text → one HTTP request; no in-memory accumulation)
+                if isinstance(embedder, OllamaBGEM3Embedder):
+                    emb_list = embedder.encode([embed_text])
+                else:
+                    raw = embedder.encode(
+                        [embed_text],
+                        show_progress_bar=False,
+                        convert_to_numpy=True,
+                    )
+                    emb_list = [raw[0].tolist()]
+
+                emb = emb_list[0]
+                if emb is None:
+                    embed_skipped += 1
+                    logger.warning(
+                        f"  ⚠ Embedding failed for {record['chunk_type']} "
+                        f"id={record['id'][:8]}… — skipping"
+                    )
+                    continue
+
+                if record["chunk_type"] == "child":
+                    sv = bm25_index.get_sparse_vector(record.get("raw_text", embed_text))
+                    child_batch.append(PointStruct(
+                        id=record["id"],
+                        vector={"dense": emb, "bm25": sv},
+                        payload=record["payload"],
+                    ))
+                    if len(child_batch) >= UPSERT_BATCH:
+                        client.upsert(
+                            collection_name=children_col,
+                            points=child_batch,
+                            wait=True,
+                        )
+                        child_batches_sent += 1
+                        logger.info(
+                            f"  ✓ Children batch {child_batches_sent} "
+                            f"({child_batches_sent * UPSERT_BATCH} upserted so far)"
+                        )
+                        child_batch.clear()
+
+                else:   # "parent"
+                    parent_batch.append(PointStruct(
+                        id=record["id"],
+                        vector={"dense": emb},
+                        payload=record["payload"],
+                    ))
+                    if len(parent_batch) >= UPSERT_BATCH:
+                        client.upsert(
+                            collection_name=parents_col,
+                            points=parent_batch,
+                            wait=True,
+                        )
+                        parent_batches_sent += 1
+                        logger.info(
+                            f"  ✓ Parents batch {parent_batches_sent} "
+                            f"({parent_batches_sent * UPSERT_BATCH} upserted so far)"
+                        )
+                        parent_batch.clear()
+
+        # Flush remaining partial batches
+        if child_batch:
+            client.upsert(
+                collection_name=children_col,
+                points=child_batch,
+                wait=True,
+            )
+            child_batches_sent += 1
+            logger.info(f"  ✓ Children final batch ({len(child_batch)} points)")
+
+        if parent_batch:
+            client.upsert(
+                collection_name=parents_col,
+                points=parent_batch,
+                wait=True,
+            )
+            parent_batches_sent += 1
+            logger.info(f"  ✓ Parents final batch ({len(parent_batch)} points)")
+
+        pass2_ok = True
+
+    finally:
+        # Remove the temporary JSONL only on clean success so that the file is
+        # available for debugging if Pass 2 fails partway through.
+        if pass2_ok:
+            jsonl_path.unlink(missing_ok=True)
+            logger.info(f"  ✓ Removed temporary JSONL: {jsonl_path}")
+        else:
+            logger.warning(
+                f"  ⚠ Pass 2 did not complete cleanly — "
+                f"temporary JSONL kept for inspection: {jsonl_path}"
+            )
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    logger.info("\n" + "=" * 80)
+    logger.info("INGESTION COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"✓ Files processed       : {total_files}")
+    logger.info(f"✓ Parent chunks indexed : {total_parents}")
+    logger.info(f"✓ Child chunks indexed  : {total_children}")
+    if embed_skipped:
+        logger.warning(f"⚠ Embedding failures    : {embed_skipped}")
+    if total_files > 0:
+        logger.info(
+            f"✓ Avg children/file     : {total_children / total_files:.1f}"
+        )
+    logger.info(f"✓ Children collection   : {children_col}")
+    logger.info(f"✓ Parents collection    : {parents_col}")
+    logger.info(f"✓ Embedding dimension   : {embedding_dim}")
+    logger.info(f"✓ BM25 vocabulary       : {len(bm25_index.vocabulary)}")
+    if deduplicator is not None:
+        logger.info(f"✓ MinHash index size    : {len(deduplicator)}")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="V3 Parent-Child Retriever — interactive query test or batch evaluation"
-    )
-    # ── Single-query mode ──────────────────────────────────────────────────
-    parser.add_argument(
-        "--query",
-        default="What are the safety requirements?",
-        help="Single query string (ignored when --questions is supplied)",
-    )
-    # ── Batch mode (questions JSON file) ──────────────────────────────────
-    parser.add_argument(
-        "--questions",
-        default=None,
-        metavar="PATH",
-        help=(
-            "Path to a questions JSON file with structure "
-            '{"dataset_info": {...}, "questions": [{"id":…, "question":…, …}]}. '
-            "When provided, retrieval is run for every question and all results "
-            "are written to --output."
-        ),
-    )
-    parser.add_argument(
-        "--output",
-        default="retrieval_results.json",
-        metavar="PATH",
-        help="Output JSON file for batch results (default: retrieval_results.json)",
-    )
-    # ── Shared options ─────────────────────────────────────────────────────
-    parser.add_argument("--top-k",      type=int, default=FINAL_TOP_K)
-    parser.add_argument("--no-rerank",  action="store_true")
-    parser.add_argument("--collection", default=COLLECTION_BASE)
-    parser.add_argument(
-        "--qdrant-url",
-        default=QDRANT_URL,
-        help=f"Qdrant HTTP URL (default: {QDRANT_URL})",
-    )
-    args = parser.parse_args()
-
-    retriever = ParentChildRetriever(
-        qdrant_url=args.qdrant_url,
-        children_col=f"{args.collection}_children",
-        parents_col =f"{args.collection}_parents",
-    )
-
-    # ── Batch mode: iterate over every question in the JSON file ──────────
-    if args.questions:
-        logger.info(f"Loading questions from {args.questions} …")
-        with open(args.questions, "r", encoding="utf-8") as fh:
-            questions_data = json.load(fh)
-
-        dataset_info: Dict[str, Any] = questions_data.get("dataset_info", {})
-        questions: List[Dict[str, Any]] = questions_data.get("questions", [])
-        logger.info(f"Loaded {len(questions)} questions — running retrieval …")
-
-        per_question_results: List[Dict[str, Any]] = []
-        total_t0 = time.time()
-
-        for idx, q in enumerate(questions, 1):
-            query_text = q.get("question", "")
-            logger.info(f"[{idx}/{len(questions)}] Query: {query_text}")
-            t0 = time.time()
-            retrieved = retriever.retrieve(
-                query_text,
-                top_k=args.top_k,
-                rerank=not args.no_rerank,
-            )
-            elapsed = time.time() - t0
-
-            per_question_results.append({
-                # Copy original question metadata verbatim so the file is
-                # self-contained and can be used directly for evaluation.
-                "id":              q.get("id", f"q{idx:04d}"),
-                "question":        query_text,
-                "source_document": q.get("source_document", ""),
-                "answer":          q.get("answer", ""),
-                "evidence_snippets": q.get("evidence_snippets", []),
-                "page_reference":  q.get("page_reference", ""),
-                "difficulty":      q.get("difficulty", ""),
-                "question_type":   q.get("question_type", ""),
-                # Retrieval output
-                "retrieval_time_s":   round(elapsed, 4),
-                "num_results":        len(retrieved),
-                "retrieved_chunks":   [_parent_result_to_dict(r) for r in retrieved],
-            })
-
-        total_elapsed = time.time() - total_t0
-        logger.info(
-            f"Retrieval complete — {len(questions)} queries in {total_elapsed:.2f}s "
-            f"({(total_elapsed / max(len(questions), 1)) * 1000:.0f} ms/query avg)"
-        )
-
-        output_payload: Dict[str, Any] = {
-            "dataset_info": dataset_info,
-            "retrieval_config": {
-                "collection_base":  args.collection,
-                "children_col":     retriever.children_col,
-                "parents_col":      retriever.parents_col,
-                "qdrant_url":       args.qdrant_url,
-                "top_k":            args.top_k,
-                "rerank":           not args.no_rerank,
-                "total_queries":    len(questions),
-                "total_time_s":     round(total_elapsed, 4),
-            },
-            "results": per_question_results,
-        }
-
-        _save_results_json(output_payload, args.output)
-
-        print(f"\n{'='*70}")
-        print(f"Batch retrieval complete")
-        print(f"  Questions : {len(questions)}")
-        print(f"  Total time: {total_elapsed:.2f}s")
-        print(f"  Output    : {args.output}")
-        print("=" * 70)
-
-    # ── Single-query mode ─────────────────────────────────────────────────
-    else:
-        logger.info(f"Query: {args.query}")
-        t0 = time.time()
-        results = retriever.retrieve(
-            args.query,
-            top_k=args.top_k,
-            rerank=not args.no_rerank,
-        )
-        elapsed = time.time() - t0
-
-        print(f"\n{'='*70}")
-        print(f"Query : {args.query}")
-        print(f"Results: {len(results)}  |  Time: {elapsed:.2f}s")
-        print("=" * 70)
-        for r in results:
-            section = " > ".join(r.section_hierarchy) if r.section_hierarchy else "—"
-            print(f"\n[{r.filename}]  section={section}  "
-                  f"child_score={r.child_score:.4f}  "
-                  f"final_score={r.final_score:.4f}  "
-                  f"matched_children={r.matched_children}")
-            print(r.content[:400])
-            print("...")
-
-        print("\n=== Context block (for LLM) ===")
-        print(retriever.format_context(results, max_chars_per_result=400))
+    main()
