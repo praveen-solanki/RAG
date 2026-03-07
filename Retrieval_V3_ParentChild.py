@@ -578,44 +578,173 @@ class ParentChildRetriever:
 # Quick CLI smoke-test
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _parent_result_to_dict(r: "ParentResult") -> Dict[str, Any]:
+    """Serialize a ParentResult dataclass to a JSON-safe dictionary."""
+    return {
+        "parent_id": r.parent_id,
+        "filename": r.filename,
+        "section_title": r.section_title,
+        "section_hierarchy": r.section_hierarchy,
+        "page_number": r.page_number,
+        "page_type": r.page_type,
+        "child_score": round(float(r.child_score), 6),
+        "rerank_score": round(float(r.rerank_score), 6),
+        "final_score": round(float(r.final_score), 6),
+        "matched_children": r.matched_children,
+        "content": r.content,
+    }
+
+
+def _save_results_json(output: Dict[str, Any], path: str) -> None:
+    """Write *output* to *path* as indented JSON, creating parent dirs if needed."""
+    parent_dir = os.path.dirname(os.path.abspath(path))
+    os.makedirs(parent_dir, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(output, fh, indent=2, ensure_ascii=False)
+    logger.info(f"Results saved to: {path}")
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="V3 Parent-Child Retriever — interactive query test"
+        description="V3 Parent-Child Retriever — interactive query test or batch evaluation"
     )
-    parser.add_argument("--query",     default="What are the safety requirements?")
-    parser.add_argument("--top-k",     type=int, default=FINAL_TOP_K)
-    parser.add_argument("--no-rerank", action="store_true")
+    # ── Single-query mode ──────────────────────────────────────────────────
+    parser.add_argument(
+        "--query",
+        default="What are the safety requirements?",
+        help="Single query string (ignored when --questions is supplied)",
+    )
+    # ── Batch mode (questions JSON file) ──────────────────────────────────
+    parser.add_argument(
+        "--questions",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Path to a questions JSON file with structure "
+            '{"dataset_info": {...}, "questions": [{"id":…, "question":…, …}]}. '
+            "When provided, retrieval is run for every question and all results "
+            "are written to --output."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        default="retrieval_results.json",
+        metavar="PATH",
+        help="Output JSON file for batch results (default: retrieval_results.json)",
+    )
+    # ── Shared options ─────────────────────────────────────────────────────
+    parser.add_argument("--top-k",      type=int, default=FINAL_TOP_K)
+    parser.add_argument("--no-rerank",  action="store_true")
     parser.add_argument("--collection", default=COLLECTION_BASE)
+    parser.add_argument(
+        "--qdrant-url",
+        default=QDRANT_URL,
+        help=f"Qdrant HTTP URL (default: {QDRANT_URL})",
+    )
     args = parser.parse_args()
 
     retriever = ParentChildRetriever(
+        qdrant_url=args.qdrant_url,
         children_col=f"{args.collection}_children",
         parents_col =f"{args.collection}_parents",
     )
 
-    logger.info(f"\nQuery: {args.query}")
-    t0 = time.time()
-    results = retriever.retrieve(
-        args.query,
-        top_k=args.top_k,
-        rerank=not args.no_rerank,
-    )
-    elapsed = time.time() - t0
+    # ── Batch mode: iterate over every question in the JSON file ──────────
+    if args.questions:
+        logger.info(f"Loading questions from {args.questions} …")
+        with open(args.questions, "r", encoding="utf-8") as fh:
+            questions_data = json.load(fh)
 
-    print(f"\n{'='*70}")
-    print(f"Query : {args.query}")
-    print(f"Results: {len(results)}  |  Time: {elapsed:.2f}s")
-    print("=" * 70)
-    for r in results:
-        section = " > ".join(r.section_hierarchy) if r.section_hierarchy else "—"
-        print(f"\n[{r.filename}]  section={section}  "
-              f"child_score={r.child_score:.4f}  "
-              f"final_score={r.final_score:.4f}  "
-              f"matched_children={r.matched_children}")
-        print(r.content[:400])
-        print("...")
+        dataset_info: Dict[str, Any] = questions_data.get("dataset_info", {})
+        questions: List[Dict[str, Any]] = questions_data.get("questions", [])
+        logger.info(f"Loaded {len(questions)} questions — running retrieval …")
 
-    print("\n=== Context block (for LLM) ===")
-    print(retriever.format_context(results, max_chars_per_result=400))
+        per_question_results: List[Dict[str, Any]] = []
+        total_t0 = time.time()
+
+        for idx, q in enumerate(questions, 1):
+            query_text = q.get("question", "")
+            logger.info(f"[{idx}/{len(questions)}] Query: {query_text}")
+            t0 = time.time()
+            retrieved = retriever.retrieve(
+                query_text,
+                top_k=args.top_k,
+                rerank=not args.no_rerank,
+            )
+            elapsed = time.time() - t0
+
+            per_question_results.append({
+                # Copy original question metadata verbatim so the file is
+                # self-contained and can be used directly for evaluation.
+                "id":              q.get("id", f"q{idx:04d}"),
+                "question":        query_text,
+                "source_document": q.get("source_document", ""),
+                "answer":          q.get("answer", ""),
+                "evidence_snippets": q.get("evidence_snippets", []),
+                "page_reference":  q.get("page_reference", ""),
+                "difficulty":      q.get("difficulty", ""),
+                "question_type":   q.get("question_type", ""),
+                # Retrieval output
+                "retrieval_time_s":   round(elapsed, 4),
+                "num_results":        len(retrieved),
+                "retrieved_chunks":   [_parent_result_to_dict(r) for r in retrieved],
+            })
+
+        total_elapsed = time.time() - total_t0
+        logger.info(
+            f"Retrieval complete — {len(questions)} queries in {total_elapsed:.2f}s "
+            f"({(total_elapsed / max(len(questions), 1)) * 1000:.0f} ms/query avg)"
+        )
+
+        output_payload: Dict[str, Any] = {
+            "dataset_info": dataset_info,
+            "retrieval_config": {
+                "collection_base":  args.collection,
+                "children_col":     retriever.children_col,
+                "parents_col":      retriever.parents_col,
+                "qdrant_url":       args.qdrant_url,
+                "top_k":            args.top_k,
+                "rerank":           not args.no_rerank,
+                "total_queries":    len(questions),
+                "total_time_s":     round(total_elapsed, 4),
+            },
+            "results": per_question_results,
+        }
+
+        _save_results_json(output_payload, args.output)
+
+        print(f"\n{'='*70}")
+        print(f"Batch retrieval complete")
+        print(f"  Questions : {len(questions)}")
+        print(f"  Total time: {total_elapsed:.2f}s")
+        print(f"  Output    : {args.output}")
+        print("=" * 70)
+
+    # ── Single-query mode ─────────────────────────────────────────────────
+    else:
+        logger.info(f"Query: {args.query}")
+        t0 = time.time()
+        results = retriever.retrieve(
+            args.query,
+            top_k=args.top_k,
+            rerank=not args.no_rerank,
+        )
+        elapsed = time.time() - t0
+
+        print(f"\n{'='*70}")
+        print(f"Query : {args.query}")
+        print(f"Results: {len(results)}  |  Time: {elapsed:.2f}s")
+        print("=" * 70)
+        for r in results:
+            section = " > ".join(r.section_hierarchy) if r.section_hierarchy else "—"
+            print(f"\n[{r.filename}]  section={section}  "
+                  f"child_score={r.child_score:.4f}  "
+                  f"final_score={r.final_score:.4f}  "
+                  f"matched_children={r.matched_children}")
+            print(r.content[:400])
+            print("...")
+
+        print("\n=== Context block (for LLM) ===")
+        print(retriever.format_context(results, max_chars_per_result=400))
