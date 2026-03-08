@@ -188,11 +188,33 @@ VISION_API_TIMEOUT        = 60
 # AUTOSAR documents contain dense requirement blocks (200-500 chars each) grouped
 # inside numbered sub-sections.  A child size of ~800 chars captures 1-3 full
 # requirement items; a parent size of ~3 500 chars covers a complete sub-section.
-CHILD_CHUNK_SIZE    = 800          # child chunk target size (chars)
+CHILD_CHUNK_SIZE    = 800          # child chunk target size (chars) — fallback default
 CHILD_CHUNK_OVERLAP = 200          # enough to overlap one requirement item
-PARENT_CHUNK_SIZE   = 3500         # parent chunk target size (chars)
+PARENT_CHUNK_SIZE   = 3500         # parent chunk target size (chars) — fallback default
 PARENT_CHUNK_OVERLAP= 350          # ~10 % of parent
 MIN_CHUNK_SIZE      = 60           # don't discard short requirement tags / IDs
+
+# Per-content-type child chunk sizes
+# Each content-type block is chunked in isolation — a table chunk will only
+# ever contain table rows, a text chunk only prose, etc.
+# Tune these independently; CHILD_CHUNK_SIZE is used as a fallback for any
+# content type not listed here.
+CHILD_CHUNK_SIZE_TEXT     = 800    # prose / requirement paragraphs
+CHILD_CHUNK_SIZE_TABLE    = 2000   # keep more rows together per child chunk
+CHILD_CHUNK_SIZE_IMAGE    = 800    # OCR / vision transcriptions
+CHILD_CHUNK_SIZE_DIAGRAM  = 1200   # diagram descriptions are typically longer
+CHILD_CHUNK_SIZE_EQUATION = 600    # equations are dense but short
+CHILD_CHUNK_SIZE_MIXED    = 800    # mixed pages: same as text default
+
+# Per-content-type parent chunk sizes
+# Large values here try to keep entire tables / diagrams in a single parent
+# chunk so the LLM receives maximum context.  Override to tune.
+PARENT_CHUNK_SIZE_TEXT     = 3500  # full sub-section of prose
+PARENT_CHUNK_SIZE_TABLE    = 8000  # whole table if possible; split by rows otherwise
+PARENT_CHUNK_SIZE_IMAGE    = 3000  # image description blocks
+PARENT_CHUNK_SIZE_DIAGRAM  = 4000  # diagram description blocks
+PARENT_CHUNK_SIZE_EQUATION = 2000  # equation blocks
+PARENT_CHUNK_SIZE_MIXED    = 3500  # mixed pages: same as text default
 
 # Semantic chunking
 # AUTOSAR paragraphs are highly cohesive; use a lower threshold so only clear
@@ -324,6 +346,32 @@ class PageType:
     COVER    = "cover"      # title / cover page
     TOC      = "toc"        # table of contents
     UNKNOWN  = "unknown"    # classifier was unable to determine type
+
+
+# ── Per-content-type chunk size lookup tables ────────────────────────────────
+# Sections of different content types are always kept self-contained.
+# chunk_sections() looks up the section type here; CHILD/PARENT_CHUNK_SIZE
+# is used as the fallback for any type not present in the map.
+# To change the chunk size for a specific content type, edit the CONFIG
+# constants above (CHILD_CHUNK_SIZE_TABLE etc.); these dicts are derived
+# automatically so they stay in sync.
+CHILD_CHUNK_SIZES: Dict[str, int] = {
+    PageType.TEXT:     CHILD_CHUNK_SIZE_TEXT,
+    PageType.TABLE:    CHILD_CHUNK_SIZE_TABLE,
+    PageType.IMAGE:    CHILD_CHUNK_SIZE_IMAGE,
+    PageType.DIAGRAM:  CHILD_CHUNK_SIZE_DIAGRAM,
+    PageType.EQUATION: CHILD_CHUNK_SIZE_EQUATION,
+    PageType.MIXED:    CHILD_CHUNK_SIZE_MIXED,
+}
+
+PARENT_CHUNK_SIZES: Dict[str, int] = {
+    PageType.TEXT:     PARENT_CHUNK_SIZE_TEXT,
+    PageType.TABLE:    PARENT_CHUNK_SIZE_TABLE,
+    PageType.IMAGE:    PARENT_CHUNK_SIZE_IMAGE,
+    PageType.DIAGRAM:  PARENT_CHUNK_SIZE_DIAGRAM,
+    PageType.EQUATION: PARENT_CHUNK_SIZE_EQUATION,
+    PageType.MIXED:    PARENT_CHUNK_SIZE_MIXED,
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2101,13 +2149,32 @@ class SemanticChunker:
         sections: List[DocumentSection],
         target_size: int = CHILD_CHUNK_SIZE,
         overlap: int = CHILD_CHUNK_OVERLAP,
+        size_map: Optional[Dict[str, int]] = None,
     ) -> List[ChildChunk]:
+        """
+        Chunk all document sections into ChildChunk objects.
+
+        Type-isolation guarantee
+        ------------------------
+        Sections of different content types are **always** processed
+        independently — a table chunk will never contain prose text, an image
+        description chunk will never contain table rows, etc.
+
+        When *size_map* is provided (e.g. ``CHILD_CHUNK_SIZES`` or
+        ``PARENT_CHUNK_SIZES``), each section is chunked with the target
+        size that matches its content type.  *target_size* is used as the
+        fallback for types that are not listed in the map.
+        """
         result: List[ChildChunk] = []
         for sec in sections:
             hier = sec.section_hierarchy or [sec.title]
+            t_size = (
+                size_map.get(sec.section_type, target_size)
+                if size_map is not None else target_size
+            )
             chunks = self.chunk_text(
                 sec.content, sec.title, hier,
-                sec.page_number, sec.section_type, target_size, overlap,
+                sec.page_number, sec.section_type, t_size, overlap,
             )
             result.extend(chunks)
         return result
@@ -2122,9 +2189,21 @@ class ParentChildBuilder:
     Builds parent chunks and their child chunks from document sections.
 
     Workflow:
-    1. Chunk the document at PARENT_CHUNK_SIZE → ParentChunk list
-    2. For each parent, further chunk at CHILD_CHUNK_SIZE → ChildChunk list
+    1. Chunk the document at per-type parent size → ParentChunk list
+    2. For each parent, further chunk at per-type child size → ChildChunk list
     3. Set child.parent_id = parent.parent_id
+
+    Type-isolation guarantee
+    ------------------------
+    Content types are **never mixed** inside a single chunk.  Each section
+    (text / table / image / diagram / equation / mixed) is chunked in
+    isolation using ``PARENT_CHUNK_SIZES`` at the parent tier and
+    ``CHILD_CHUNK_SIZES`` at the child tier.  A table parent chunk will
+    contain only table rows; a text parent chunk will contain only prose.
+
+    If a table is small enough to fit inside ``PARENT_CHUNK_SIZE_TABLE`` it
+    is stored as a single parent chunk.  Larger tables are split row-by-row
+    into multiple parent chunks that all share the same ``chunk_type="table"``.
     """
 
     def __init__(self, chunker: SemanticChunker):
@@ -2138,11 +2217,13 @@ class ParentChildBuilder:
         parents: List[ParentChunk] = []
         children: List[ChildChunk] = []
 
-        # Build large parent chunks first
+        # Build large parent chunks using per-content-type parent sizes.
+        # Sections of different types are never merged together.
         raw_parents: List[ChildChunk] = self.chunker.chunk_sections(
             sections,
-            target_size=PARENT_CHUNK_SIZE,
+            target_size=PARENT_CHUNK_SIZE,      # fallback for unlisted types
             overlap=PARENT_CHUNK_OVERLAP,
+            size_map=PARENT_CHUNK_SIZES,         # per-type sizes applied here
         )
 
         for raw_parent in raw_parents:
@@ -2166,14 +2247,17 @@ class ParentChildBuilder:
             )
             parents.append(parent)
 
-            # Now chunk the parent content into children
+            # Further chunk each parent into children using per-type child size.
+            # The chunk_type inherited from the parent determines which child
+            # size to use, so type isolation is preserved at both tiers.
+            child_size = CHILD_CHUNK_SIZES.get(raw_parent.chunk_type, CHILD_CHUNK_SIZE)
             child_raw = self.chunker.chunk_text(
                 raw_parent.text,
                 raw_parent.section_title,
                 raw_parent.section_hierarchy,
                 raw_parent.page_number,
                 raw_parent.chunk_type,
-                CHILD_CHUNK_SIZE,
+                child_size,
                 CHILD_CHUNK_OVERLAP,
             )
 

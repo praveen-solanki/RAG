@@ -76,6 +76,8 @@ try:
         CHILD_CHUNK_OVERLAP,
         PARENT_CHUNK_SIZE,
         PARENT_CHUNK_OVERLAP,
+        CHILD_CHUNK_SIZES,
+        PARENT_CHUNK_SIZES,
         OLLAMA_URL               as DEFAULT_OLLAMA_URL,
         OLLAMA_VISION_MODEL      as DEFAULT_VISION_MODEL,
         OLLAMA_VISION_DESC_MODEL as DEFAULT_VISION_DESC_MODEL,
@@ -178,8 +180,14 @@ def inspect_pdf(
     emit(f"  File    : {os.path.abspath(pdf_path)}")
     emit(f"  Report  : {os.path.abspath(output_path)}")
     emit(f"  Vision  : {'ENABLED — ' + vision_model if use_vision else 'DISABLED (heuristics only)'}")
-    emit(f"  Chunking: child={CHILD_CHUNK_SIZE} chars  overlap={CHILD_CHUNK_OVERLAP}"
-         f"  |  parent={PARENT_CHUNK_SIZE} chars  overlap={PARENT_CHUNK_OVERLAP}")
+    emit()
+    emit("  Per-content-type chunk sizes (child tier):")
+    for ct in [PageType.TEXT, PageType.TABLE, PageType.IMAGE,
+               PageType.DIAGRAM, PageType.EQUATION, PageType.MIXED]:
+        c_sz = CHILD_CHUNK_SIZES.get(ct, CHILD_CHUNK_SIZE)
+        p_sz = PARENT_CHUNK_SIZES.get(ct, PARENT_CHUNK_SIZE)
+        emit(f"    {ct:<10} child={c_sz:>5} chars  |  parent={p_sz:>5} chars")
+    emit(f"  Overlap : child={CHILD_CHUNK_OVERLAP} chars  |  parent={PARENT_CHUNK_OVERLAP} chars")
     emit()
 
     # ── Initialise classifier (optional) ─────────────────────────────────
