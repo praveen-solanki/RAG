@@ -3114,12 +3114,22 @@ def main():
                                 ollama_url=args.ollama_url,
                                 model=OLLAMA_SECTION_MODEL,
                             )
-                            # Load pdfplumber pages for font analysis
+                            # Snapshot pdfplumber char data while the PDF is
+                            # open.  FontSectionDetector.detect() accesses
+                            # page.chars, so we create lightweight proxy
+                            # objects that hold a copy of the char list.
                             plumber_pages: Dict[int, object] = {}
                             try:
                                 with pdfplumber.open(path) as pdf:
                                     for i, pg in enumerate(pdf.pages):
-                                        plumber_pages[i] = pg
+                                        # Store a simple namespace with a
+                                        # .chars attribute so
+                                        # FontSectionDetector can read it
+                                        # after the PDF is closed.
+                                        proxy = type("_PageProxy", (), {
+                                            "chars": list(pg.chars),
+                                        })()
+                                        plumber_pages[i] = proxy
                             except Exception:
                                 pass
                             smart_detector = SmartSectionDetector(
