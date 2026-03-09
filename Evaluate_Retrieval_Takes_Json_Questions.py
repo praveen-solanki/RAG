@@ -18,12 +18,12 @@ import json
 import time
 import argparse
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from collections import defaultdict
 import logging
 
 import numpy as np
-from Evaluate_Retrieval_With_Reranker_Template import HybridRetriever
+from Evaluate_Retrieval_With_Reranker_Template import ParentChildRetriever
 
 # Setup logging
 logging.basicConfig(
@@ -32,14 +32,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-EVALUATION_MODE = "chunk"  # Options: "document" or "chunk"
-# EVALUATION_MODE = "document"  # Options: "document" or "chunk"
+# EVALUATION_MODE = "chunk"  # Options: "document" or "chunk"
+EVALUATION_MODE = "document"  # Options: "document" or "chunk"
 
 class ComprehensiveEvaluator:
     """Complete evaluation system for 100-question dataset"""
     
-    def __init__(self, retriever: HybridRetriever):
+    def __init__(self, retriever: ParentChildRetriever, use_reranker: bool = True):
         self.retriever = retriever
+        self.use_reranker = use_reranker
         self.results = []
         
     def evaluate_single_question(
@@ -84,7 +85,7 @@ class ComprehensiveEvaluator:
         # Perform search
         start_time = time.time()
         try:
-            search_results = self.retriever.search(query, top_k=top_k)
+            search_results = self.retriever.retrieve(query, top_k=top_k, rerank=self.use_reranker)
             latency = time.time() - start_time
             
             # Extract retrieved documents
@@ -92,16 +93,16 @@ class ComprehensiveEvaluator:
             retrieved_chunks = []
             
             for result in search_results:
-                filename = result.metadata.get('filename', '')
+                filename = result.filename
                 if filename:
                     retrieved_docs.append(filename)
                     retrieved_chunks.append({
                         'filename': filename,
                         'content': result.content,
-                        'score': result.score,
-                        'section': result.metadata.get('section_title', ''),
-                        'dense_score': result.dense_score,
-                        'sparse_score': result.sparse_score,
+                        'score': result.final_score,
+                        'section': result.section_title,
+                        'dense_score': result.child_score,
+                        'sparse_score': 0.0,
                         'rerank_score': result.rerank_score,
                     })
             
@@ -115,7 +116,7 @@ class ComprehensiveEvaluator:
 
             elif EVALUATION_MODE == "chunk":
                 # Chunk level — did any retrieved chunk contain the evidence snippet?
-                # evidence_snippets = question_data.get("evidence_snippets", [])
+                evidence_snippets = question_data.get("evidence_snippets", [])
                 
                 if not evidence_snippets:
                     # No snippets available — fall back to document level with a warning
@@ -135,6 +136,12 @@ class ComprehensiveEvaluator:
                         else:
                             hit_list.append("__no_match__")
                     found = ground_truth in hit_list
+
+            else:
+                # Unknown mode — default to document level
+                logger.warning(f"Unknown EVALUATION_MODE '{EVALUATION_MODE}' — falling back to document level")
+                hit_list = retrieved_docs
+                found = ground_truth in hit_list
             
             # Rank of ground truth (1-based)
             # Rank of first correct hit (1-based)
@@ -150,10 +157,10 @@ class ComprehensiveEvaluator:
                 'found': found,
                 'rank': rank,
                 'mrr': reciprocal_rank,
-                'precision@1':  (1.0/1)  if ground_truth in hit_list[:1]  else 0.0,
-                'precision@3':  (1.0/3)  if ground_truth in hit_list[:3]  else 0.0,
-                'precision@5':  (1.0/5)  if ground_truth in hit_list[:5]  else 0.0,
-                'precision@10': (1.0/10) if ground_truth in hit_list[:10] else 0.0,
+                'precision@1':  1.0 if ground_truth in hit_list[:1]  else 0.0,
+                'precision@3':  1.0 if ground_truth in hit_list[:3]  else 0.0,
+                'precision@5':  1.0 if ground_truth in hit_list[:5]  else 0.0,
+                'precision@10': 1.0 if ground_truth in hit_list[:10] else 0.0,
                 'recall@1':  1.0 if ground_truth in hit_list[:1]  else 0.0,
                 'recall@3':  1.0 if ground_truth in hit_list[:3]  else 0.0,
                 'recall@5':  1.0 if ground_truth in hit_list[:5]  else 0.0,
@@ -162,13 +169,16 @@ class ComprehensiveEvaluator:
             
             # Calculate NDCG@K
             for k in [1, 3, 5, 10]:
-                dcg = 0.0
-                for i, doc in enumerate(hit_list[:k], start=1):
-                    if doc == ground_truth:
-                        dcg += 1.0 / np.log2(i + 1)
-                        break
-                idcg = 1.0 / np.log2(2)
-                metrics[f'ndcg@{k}'] = dcg / idcg
+                if k <= len(hit_list):
+                    dcg = 0.0
+                    for i, doc in enumerate(hit_list[:k], start=1):
+                        if doc == ground_truth:
+                            dcg = 1.0 / np.log2(i + 1)
+                            break
+                    idcg = 1.0 / np.log2(2)  # Ideal DCG with 1 relevant doc
+                    metrics[f'ndcg@{k}'] = dcg / idcg if idcg > 0 else 0.0
+                else:
+                    metrics[f'ndcg@{k}'] = 0.0
             
             if verbose:
                 logger.info(f"Found: {found}, Rank: {rank}, MRR: {reciprocal_rank:.4f}")
@@ -179,9 +189,13 @@ class ComprehensiveEvaluator:
             evidence_match = []
             for snippet in evidence_snippets:
                 match = {"snippet": snippet, "found_in_rank": None, "found_in_filename": None}
-                for chunk_rank, chunk in enumerate(retrieved_chunks[:5], start=1):
+                for rank, chunk in enumerate(retrieved_chunks[:5], start=1):
+
+
                     if fuzzy_match(snippet, chunk["content"]):
-                        match["found_in_rank"] = chunk_rank
+                    # if normalize(snippet.lower()) in normalize(chunk["content"].lower()):
+                    # if snippet.lower() in chunk["content"].lower():
+                        match["found_in_rank"] = rank
                         match["found_in_filename"] = chunk["filename"]
                         break
                 evidence_match.append(match)
@@ -220,7 +234,7 @@ class ComprehensiveEvaluator:
         top_k: int = 10,
         verbose: bool = False,
         save_progress_every: int = 10,
-        resume_file: str = None
+        resume_file: Optional[str] = None
     ) -> Dict[str, Any]:
 
         """Evaluate all questions with progress tracking"""
@@ -270,11 +284,11 @@ class ComprehensiveEvaluator:
         logger.info(f"\n✓ Completed {len(questions)} questions in {total_time/60:.2f} minutes")
         
         # Calculate aggregate statistics
-        aggregate_results = self._calculate_aggregates(all_results)
+        aggregate_results = self._calculate_aggregates(all_results, questions)
         
         return {
             'evaluation_info': {
-                'total_questions': len(all_results),
+                'total_questions': len(questions),
                 'evaluation_mode': EVALUATION_MODE,
                 'total_time_seconds': total_time,
                 # 'avg_time_per_question': total_time / len(questions),
@@ -292,7 +306,7 @@ class ComprehensiveEvaluator:
             'detailed_results': all_results,
         }
     
-    def _calculate_aggregates(self, results: List[Dict]) -> Dict:
+    def _calculate_aggregates(self, results: List[Dict], questions: List[Dict]) -> Dict:
         """Calculate comprehensive aggregate statistics"""
         
         # Overall metrics
@@ -335,8 +349,7 @@ class ComprehensiveEvaluator:
             if 'error' not in result:
                 qtype = result.get('question_type', 'unknown')
                 for metric_name, value in result['metrics'].items():
-                    if value is not None:
-                        by_type[qtype][metric_name].append(value)
+                    by_type[qtype][metric_name].append(value)
         
         by_question_type = {}
         for qtype, metrics in by_type.items():
@@ -353,8 +366,7 @@ class ComprehensiveEvaluator:
             if 'error' not in result:
                 difficulty = result.get('difficulty', 'unknown')
                 for metric_name, value in result['metrics'].items():
-                    if value is not None:
-                        by_diff[difficulty][metric_name].append(value)
+                    by_diff[difficulty][metric_name].append(value)
         
         by_difficulty = {}
         for difficulty, metrics in by_diff.items():
@@ -371,8 +383,7 @@ class ComprehensiveEvaluator:
             if 'error' not in result:
                 doc = result['ground_truth']
                 for metric_name, value in result['metrics'].items():
-                    if value is not None:
-                        by_doc[doc][metric_name].append(value)
+                    by_doc[doc][metric_name].append(value)
         
         by_document = {}
         for doc, metrics in by_doc.items():
@@ -407,11 +418,7 @@ class ComprehensiveEvaluator:
         # Group failures
         type_failures = defaultdict(int)
         diff_failures = defaultdict(int)
-
-        for failure in failures:
-            type_failures[failure.get('question_type', 'unknown')] += 1
-            diff_failures[failure.get('difficulty', 'unknown')] += 1
-                
+        
         for failure in failures[:10]:  # Sample of 10
             failure_analysis['sample_failures'].append({
                 'question': failure['question'],
@@ -421,8 +428,8 @@ class ComprehensiveEvaluator:
                 'difficulty': failure.get('difficulty'),
             })
             
-            # type_failures[failure.get('question_type', 'unknown')] += 1
-            # diff_failures[failure.get('difficulty', 'unknown')] += 1
+            type_failures[failure.get('question_type', 'unknown')] += 1
+            diff_failures[failure.get('difficulty', 'unknown')] += 1
         
         failure_analysis['failures_by_type'] = dict(type_failures)
         failure_analysis['failures_by_difficulty'] = dict(diff_failures)
@@ -616,8 +623,8 @@ def main():
     parser.add_argument(
         '--collection',
         type=str,
-        default='rag_hybrid_bge_m3',
-        help='Qdrant collection name'
+        default='Autosar_RAG_v2',
+        help='Qdrant collection base name (suffixed with _children/_parents)'
     )
     parser.add_argument(
         '--qdrant-url',
@@ -641,11 +648,6 @@ def main():
         '--verbose',
         action='store_true',
         help='Print detailed progress'
-    )
-    parser.add_argument(
-        '--no-ollama',
-        action='store_true',
-        help='Disable Ollama BGE-M3'
     )
     parser.add_argument(
         '--no-reranker',
@@ -674,17 +676,16 @@ def main():
     logger.info(f"   Generated: {dataset_info.get('generation_date', 'N/A')}")
     
     # Initialize retriever
-    logger.info("\nInitializing hybrid retriever...")
-    retriever = HybridRetriever(
+    logger.info("\nInitializing parent-child retriever...")
+    retriever = ParentChildRetriever(
         qdrant_url=args.qdrant_url,
-        collection_name=args.collection,
-        use_ollama=not args.no_ollama,
-        use_reranker=not args.no_reranker,
+        children_col=f"{args.collection}_children",
+        parents_col=f"{args.collection}_parents",
     )
     logger.info("✓ Retriever initialized")
     
     # Initialize evaluator
-    evaluator = ComprehensiveEvaluator(retriever)
+    evaluator = ComprehensiveEvaluator(retriever, use_reranker=not args.no_reranker)
     
     # Run evaluation
     logger.info("\nStarting evaluation...\n")
