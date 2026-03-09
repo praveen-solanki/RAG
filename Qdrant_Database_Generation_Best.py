@@ -208,6 +208,9 @@ SECTION_PATTERNS = [
     # (?:[A-Z]|\[) is explicit: the section title starts with a capital letter
     # OR an opening bracket (requirement-ID-prefixed section titles).
     r'^\d+(\.\d+){1,5}\s+(?:[A-Z]|\[)',
+    # Single-level AUTOSAR numbered headings: "1 Introduction", "4 Fundamentals"
+    # (no dot — these are top-level chapter headings)
+    r'^\d{1,2}\s+[A-Z][A-Za-z]',
     # AUTOSAR tagged requirement IDs used as standalone header lines:
     # [SWS_Os_00042], [SRS_ETHTSYN_00001], [ECUC_Com_00012], [AP_SomeModule_00001] …
     # Module names are CamelCase (Os, LinIf) or ALL_CAPS (ETHTSYN).
