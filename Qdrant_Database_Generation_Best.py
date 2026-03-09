@@ -278,20 +278,34 @@ logger = logging.getLogger(__name__)
 
 class PageType:
     """
-    String constants for every page content type.
-
-    Use these constants throughout the pipeline so that filtering by
-    content type in Qdrant always uses the same canonical strings.
+    Canonical page-level content types for AUTOSAR-style technical standards.
+    Covers both generic document structure and AUTOSAR-specific content patterns.
+    Used throughout the pipeline for classification, extraction routing, and
+    filtering decisions before vector indexing.
     """
-    TEXT     = "text"       # dense prose / paragraphs
-    TABLE    = "table"      # primarily tabular data
-    IMAGE    = "image"      # photograph or raster graphic
-    DIAGRAM  = "diagram"    # flow chart, block diagram, UML, schematic
-    EQUATION = "equation"   # mathematical equations / formulae
-    MIXED    = "mixed"      # combination of multiple types
-    COVER    = "cover"      # title / cover page
-    TOC      = "toc"        # table of contents
-    UNKNOWN  = "unknown"    # classifier was unable to determine type
+    # --- Structural pages (filtered from indexing) ---
+    COVER              = "cover"              # Title / cover page
+    TOC                = "toc"                # Table of contents
+    REVISION_HISTORY   = "revision_history"   # Document change history / release logs
+    DISCLAIMER         = "disclaimer"         # Legal notices, liability, copyright text
+
+    # --- Core content pages ---
+    TEXT               = "text"               # Dense prose / standard paragraphs
+    LIST               = "list"               # Bullet lists / enumerations
+    TABLE              = "table"              # General tabular data
+    DIAGRAM            = "diagram"            # Flow chart, block diagram, UML, schematic
+    IMAGE              = "image"              # Photograph or raster graphic
+    EQUATION           = "equation"           # Mathematical equations / formulae
+    MIXED              = "mixed"              # Combination of multiple content types
+
+    # --- AUTOSAR-specific pages ---
+    CODE_SNIPPET       = "code_snippet"       # C headers, API signatures, macros, typedef blocks
+    CLASS_REFERENCE    = "class_reference"    # UML class tables, meta-model definitions, attributes
+    SPECIFICATION_ITEM = "specification_item" # Traceable constraints / requirements
+    GLOSSARY           = "glossary"           # Acronyms, terms, and abbreviation definitions
+
+    # --- Fallback ---
+    UNKNOWN            = "unknown"            # Classifier was unable to determine type
 
 
 # ═══════════════════════════════════════════════════════════════════════════
